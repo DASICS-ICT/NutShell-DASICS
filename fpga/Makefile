@@ -21,10 +21,27 @@ $(XPR_FILE):
 
 project: $(XPR_FILE)
 
-bootgen:
-	cd boot && hsi $(VIVADO_FLAG) -source mk.tcl -tclargs $(PRJ_FULL) $(STANDALONE)
+ARCH ?= zynq
+BOOT_BUILD = boot/build
+ABS_PRJ_ROOT = $(abspath $(PRJ_ROOT))
+
+bootgen: project
+	mkdir -p $(BOOT_BUILD)/$(ARCH)
+	ln -sf $(ABS_PRJ_ROOT)/system_top_wrapper.xsa $(BOOT_BUILD)/$(ARCH)/ps.xsa
+	ln -sf $(ABS_PRJ_ROOT)/$(PRJ_FULL).runs/impl_1/system_top_wrapper.bit $(BOOT_BUILD)/$(ARCH)/fpga.bit
+	cd boot && xsct mk.tcl $(PRJ_FULL) $(STANDALONE)
 
 vivado: $(XPR_FILE)
 	vivado $(VIVADO_FLAG) $(XPR_FILE) &
 
 .PHONY: default project vivado bootgen
+
+clean-pynq-vivado:
+	rm -rf board/pynq/build
+
+clean-boot:
+	rm -rf $(BOOT_BUILD)
+
+clean: clean-boot clean-pynq-vivado
+
+.PHONY: clean clean-boot clean-pynq-vivado

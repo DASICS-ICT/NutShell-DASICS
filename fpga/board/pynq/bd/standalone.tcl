@@ -20,7 +20,7 @@ set script_folder [_tcl::get_script_folder]
 ################################################################
 # Check if script is running in correct Vivado version.
 ################################################################
-set scripts_vivado_version 2019.1
+set scripts_vivado_version 2019.2
 set current_vivado_version [version -short]
 
 if { [string first $scripts_vivado_version $current_vivado_version] == -1 } {
@@ -1334,13 +1334,13 @@ proc create_root_design { parentCell } {
   connect_bd_net -net xlconcat_0_dout [get_bd_pins rv_system/io_meip] [get_bd_pins xlconcat_0/dout]
 
   # Create address segments
-  create_bd_addr_seg -range 0x20000000 -offset 0x60000000 [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs rv_system/NutShell_0/io_frontend/reg0] SEG_NutShell_0_reg0
-  create_bd_addr_seg -range 0x00001000 -offset 0x40000000 [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs hier_clkrst/axi_gpio_0/S_AXI/Reg] SEG_axi_gpio_0_Reg
-  create_bd_addr_seg -range 0x00001000 -offset 0xE000B000 [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_ENET0] SEG_processing_system7_0_GP0_ENET0
-  create_bd_addr_seg -range 0x00010000 -offset 0xF8000000 [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_PS_SLCR_REGS] SEG_processing_system7_0_GP0_PS_SLCR_REGS
-  create_bd_addr_seg -range 0x00001000 -offset 0xE0100000 [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_SDIO0] SEG_processing_system7_0_GP0_SDIO0
-  create_bd_addr_seg -range 0x00001000 -offset 0xE0000000 [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_UART0] SEG_processing_system7_0_GP0_UART0
-  create_bd_addr_seg -range 0x10000000 -offset 0x10000000 [get_bd_addr_spaces rv_system/NutShell_0/io_mem] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] SEG_processing_system7_0_HP0_DDR_LOWOCM
+  assign_bd_address -offset 0x60000000 -range 0x20000000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs rv_system/NutShell_0/io_frontend/reg0] -force
+  assign_bd_address -offset 0x40000000 -range 0x00001000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs hier_clkrst/axi_gpio_0/S_AXI/Reg] -force
+  assign_bd_address -offset 0xE000B000 -range 0x00001000 -target_address_space [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_ENET0] -force
+  assign_bd_address -offset 0xF8000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_PS_SLCR_REGS] -force
+  assign_bd_address -offset 0xE0100000 -range 0x00001000 -target_address_space [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_SDIO0] -force
+  assign_bd_address -offset 0xE0000000 -range 0x00001000 -target_address_space [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_UART0] -force
+  assign_bd_address -offset 0x10000000 -range 0x10000000 -target_address_space [get_bd_addr_spaces rv_system/NutShell_0/io_mem] [get_bd_addr_segs processing_system7_0/S_AXI_HP0/HP0_DDR_LOWOCM] -force
 
 
   # Restore current instance

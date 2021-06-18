@@ -15,3 +15,4 @@ set src_files [list \
 #]
 
 source ${script_dir}/../common.tcl
+source ${script_dir}/../run.tcl

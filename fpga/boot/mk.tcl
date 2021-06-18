@@ -1,9 +1,9 @@
-# usage: hsi -nojournal -nolog -source [this tcl file] -tclargs [hdf file] [prj-brd]
+# usage: xsct [this tcl file] [prj-brd] [standalone (true/false)]
 
 if {[llength $argv] > 0} {
   set project_name [lindex $argv 0]
 } else {
-  puts "hdf file path is not given!"
+  puts "xsa file path is not given!"
   return 1
 }
 
@@ -21,7 +21,7 @@ set brd [lindex $s 1]
 set script_dir [file normalize [file dirname [info script]]]
 set build_dir ${script_dir}/build/${project_name}
 
-set device_tree_repo_path "/home/yzh/xilinx/device-tree-xlnx"
+set device_tree_repo_path "/home/ycy/device-tree-xlnx"
 
 switch -regexp -- $brd {
   zedboard|pynq {
@@ -41,10 +41,10 @@ switch -regexp -- $brd {
 }
 
 exec mkdir -p ${script_dir}/build/${arch}
-set hdf_file ${script_dir}/build/${arch}/ps.hdf
-set hw_design [open_hw_design ${hdf_file}]
+set xsa_file ${script_dir}/build/${arch}/ps.xsa
+set hw_design [hsi open_hw_design ${xsa_file}]
 
-generate_app -hw $hw_design -os standalone -proc $processor -app ${arch}_fsbl -sw fsbl -dir ${build_dir}/fsbl
+hsi generate_app -hw $hw_design -os standalone -proc $processor -app ${arch}_fsbl -sw fsbl -dir ${build_dir}/fsbl
 if {$brd == "sidewinder"} {
   # see bug-list.md
   exec sed -i -e "s/0x03FFFFFFU, 0x02000FFFU);/0x03FFFFFFU, 0x03FFFFFFU);/g" ${build_dir}/fsbl/psu_init.c
@@ -68,11 +68,11 @@ if {$standalone == "true"} {
 exec bootgen -arch ${arch} -image $bif_file -w -o i ${build_dir}/BOOT.BIN
 
 #device tree
-set_repo_path ${device_tree_repo_path}
-create_sw_design device-tree -os device_tree -proc $processor
+hsi set_repo_path ${device_tree_repo_path}
+hsi create_sw_design device-tree -os device_tree -proc $processor
 if {$brd != "ultraZ"} {
-  set_property CONFIG.periph_type_overrides "{BOARD ${brd_version}}" [get_os]
+  hsi set_property CONFIG.periph_type_overrides "{BOARD ${brd_version}}" [hsi get_os]
 }
-generate_target -dir ${build_dir}/dts
+hsi generate_target -dir ${build_dir}/dts
 
 exit
