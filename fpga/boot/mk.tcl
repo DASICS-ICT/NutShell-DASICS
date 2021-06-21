@@ -21,7 +21,7 @@ set brd [lindex $s 1]
 set script_dir [file normalize [file dirname [info script]]]
 set build_dir ${script_dir}/build/${project_name}
 
-set device_tree_repo_path "/home/ycy/device-tree-xlnx"
+set device_tree_repo_path "../../../device-tree-xlnx"
 
 switch -regexp -- $brd {
   zedboard|pynq {
@@ -61,7 +61,7 @@ exec ln -sf ${build_dir}/fsbl/executable.elf ${script_dir}/build/${arch}/fsbl.el
 
 if {$standalone == "true"} {
   set bif_file ${script_dir}/bootgen-${arch}-standalone.bif
-  if { [catch { exec make -C ${script_dir}/../resource/fsbl-loader } msg ] } { }
+  if { [catch { exec make -C ${script_dir}/../resource/fsbl-loader PRJ_FULL=${project_name}} msg ] } { }
 } else {
   set bif_file ${script_dir}/bootgen-${arch}.bif
 }

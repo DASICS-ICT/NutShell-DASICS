@@ -9,7 +9,7 @@ ifneq ($(strip $(C_DEPS)),)
 endif
 endif
 
-include ../../Makefile
+PRJ_FULL ?= myproject-pynq
 
 APP = fsbl-loader
 OBJS += $(APP).o
