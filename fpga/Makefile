@@ -25,7 +25,9 @@ ARCH ?= zynq
 BOOT_BUILD = boot/build
 ABS_PRJ_ROOT = $(abspath $(PRJ_ROOT))
 
-bootgen: project
+bootgen: $(BOOT_BUILD)/$(PRJ_FULL)/BOOT.BIN
+
+$(BOOT_BUILD)/$(PRJ_FULL)/BOOT.BIN: project
 	mkdir -p $(BOOT_BUILD)/$(ARCH)
 	ln -sf $(ABS_PRJ_ROOT)/system_top_wrapper.xsa $(BOOT_BUILD)/$(ARCH)/ps.xsa
 	ln -sf $(ABS_PRJ_ROOT)/$(PRJ_FULL).runs/impl_1/system_top_wrapper.bit $(BOOT_BUILD)/$(ARCH)/fpga.bit
