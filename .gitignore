@@ -349,6 +349,9 @@ fpga/.Xil/
 # vscode temp file
 .vscode/
 
+# mill bsp for intellij idea
+.bsp/
+
 # metals temp
 .metals/
 
