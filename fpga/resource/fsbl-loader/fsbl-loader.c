@@ -185,7 +185,7 @@ int main(void)
   	// xil_printf("Reset RISC-V core.\r\n");
 
 	/* release RISC-V reset signal */
-	// gpio_base[0] = 0x1;
+	gpio_base[0] = 0x1;
 
 	// while(1);
 	RvDiskIOHelper();
