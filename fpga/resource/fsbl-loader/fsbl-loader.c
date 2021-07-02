@@ -68,6 +68,7 @@
 #include "xparameters.h"	/* SDK generated parameters */
 #include "xsdps.h"		/* SD device driver */
 #include "xil_printf.h"
+#include "diskio.h"		/* SD raw read/write functions */
 #include "ff.h"
 #include "xil_cache.h"
 #include "xplatform_info.h"
@@ -82,6 +83,7 @@
 
 /************************** Function Prototypes ******************************/
 int FfsSdPolledExample(void);
+void RvDiskIOHelper(void);
 
 /************************** Variable Definitions *****************************/
 static FIL fil;		/* File object */
@@ -94,11 +96,32 @@ static char FileName[32] = "RV_BOOT.bin";
 static char *SD_File;
 
 #define RV_DRAM_ENTRY	0x10000000
+#define RV_RESET_REG	0x43C00000
 #define GPIO_BASE   	0x40000000
 
 #define FILE_SIZE_MB	32
+#define RV_DRAM_SIZE_MB 256
 
 static UINT FileSize = (FILE_SIZE_MB * 1024 * 1024);
+
+#define SHARED_BUF_BASE		0x5FFFFE00
+#define PHY_SHARED_BUF_BASE	0x1FFFFE00
+
+#define SDIO_CMD_STATUS_OFFSET		0
+#define SDIO_CMD_SECT_BASE_OFFSET	1
+#define SDIO_CMD_SECT_NUM_OFFSET	2
+#define SDIO_CMD_MEM_BUF_OFFSET		3
+
+#define CMD_STATUS_MASK		(1 << 0)
+#define CMD_TYPE_MASK		(1 << 7)
+#define CMD_RESULT_BIT		8
+
+/* SD card LBA map:
+ * FAT32 Boot: 34MB (2048 - 71679)
+ * Unformatted: from 71680
+ */
+#define RV_OS_IMAGE_BASE_SECTOR	71680
+
 
 /*****************************************************************************/
 /**
@@ -116,6 +139,7 @@ int main(void)
 {
 	int Status;
 	
+	volatile unsigned int *rv_reset_reg = (void *)RV_RESET_REG;
 	volatile unsigned int *gpio_base = (void *)GPIO_BASE;
 
 	int i;
@@ -132,11 +156,14 @@ int main(void)
 	//set uncached non-shareable section attribute
 	sec_attr = 0x04de2;		//S=b0 TEX=b100 AP=b11 Domain=b1111 C=b0, B=b0
 
-	for(i = 0; i < FILE_SIZE_MB; i++)
+	for(i = 0; i < RV_DRAM_SIZE_MB; i++)
 	{
 		Xil_SetTlbAttributes(rv_dram_base, sec_attr);
 		rv_dram_base += 0x100000;		//section size
 	}
+	//set uncached non-shareable section attribute to shared buffer
+	rv_dram_base = (INTPTR)0x5FF00000;
+	Xil_SetTlbAttributes(rv_dram_base, sec_attr);
 
 	/* Load RV_BOOT.bin file from SD card to RV_DRAM_ENTRY */
 	Status = FfsSdPolledExample();
@@ -153,11 +180,15 @@ int main(void)
     while (gpio_base[2] & 0x1) ;
   }
 
-  xil_printf("Reset RISC-V core.\r\n");
-	/* release RISC-V reset signal */
-	gpio_base[0] = 0x1;
+	xil_printf("Passing system contrl to RISC-V core... \r\n");
 
-	while(1);
+  	// xil_printf("Reset RISC-V core.\r\n");
+
+	/* release RISC-V reset signal */
+	// gpio_base[0] = 0x1;
+
+	// while(1);
+	RvDiskIOHelper();
 
 	return XST_SUCCESS;
 
@@ -182,6 +213,8 @@ int FfsSdPolledExample(void)
 {
 	FRESULT Res;
 	UINT NumBytesRead;
+	UINT NumBytesWritten;
+	u32 BuffCnt;
 
 	/*
 	 * To test logical drive 0, Path should be "0:/"
@@ -245,4 +278,77 @@ int FfsSdPolledExample(void)
 	}
 
 	return XST_SUCCESS;
+}
+
+/*****************************************************************************/
+/**
+*
+* Helper function for RISC-V rocket-chip to access SD card logical drive
+* with disk I/O interface.
+*
+* Basic read/write operations in exposed in diskio.c are leveraged, in which LBA address
+* is used to describe SD I/O request.
+*
+* Interactions between RISC-V and ARM are based on a shared buffer in DRAM.
+*
+* Helper function works in an infinite loop mode to wait for RISC-V I/O requests.
+*
+* @param	None
+*
+* @return	None
+*
+* @note		None
+*
+******************************************************************************/
+void RvDiskIOHelper(void)
+{
+	volatile unsigned int *rv_shared_buf = (void *)SHARED_BUF_BASE;
+	volatile unsigned int *rv_reset_reg = (void *)RV_RESET_REG;
+	unsigned int *phy_shared_buf = (void *)(PHY_SHARED_BUF_BASE);
+
+	phy_shared_buf[SDIO_CMD_STATUS_OFFSET] = 0;
+
+	/* release RISC-V reset signal */
+	*rv_reset_reg = 0x0;
+
+	do {
+		unsigned int status = rv_shared_buf[SDIO_CMD_STATUS_OFFSET];
+
+		//SDIO command parameters
+		DWORD sector = RV_OS_IMAGE_BASE_SECTOR +
+			rv_shared_buf[SDIO_CMD_SECT_BASE_OFFSET];
+
+		UINT count = rv_shared_buf[SDIO_CMD_SECT_NUM_OFFSET];
+
+		unsigned int buf_addr = rv_shared_buf[SDIO_CMD_MEM_BUF_OFFSET];
+
+		BYTE *buff;
+
+		DRESULT res;
+
+		//check if RISC-V software sends out an SDIO request
+		if ( !(status & CMD_STATUS_MASK) )
+			continue;
+
+		/*buffer address re-mapping*/
+		// buf_addr = (0x50000000 | (buf_addr & 0x0FFFFFFF));
+		buff = (BYTE *)buf_addr;
+
+		xil_printf("SDIO operation: %d \r\n", (status & CMD_TYPE_MASK));
+
+		xil_printf("Base sector: %d \r\n", sector);
+		xil_printf("# of sectors: %d \r\n", count);
+		xil_printf("Memory address: %08x \r\n", buff);
+
+		//SDIO read/write operation
+		if (status & CMD_TYPE_MASK)
+			res = disk_write(0, buff, sector, count);
+		else
+			res = disk_read(0, buff, sector, count);
+
+		//return result to RISC-V
+		status = res << CMD_RESULT_BIT;
+		rv_shared_buf[SDIO_CMD_STATUS_OFFSET] = status;
+
+	} while(1);
 }
