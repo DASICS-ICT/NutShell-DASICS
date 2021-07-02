@@ -104,7 +104,7 @@ static char *SD_File;
 
 static UINT FileSize = (FILE_SIZE_MB * 1024 * 1024);
 
-#define SHARED_BUF_BASE		0x5FFFFE00
+#define SHARED_BUF_BASE		0x6FFFFE00
 #define PHY_SHARED_BUF_BASE	0x1FFFFE00
 
 #define SDIO_CMD_STATUS_OFFSET		0
