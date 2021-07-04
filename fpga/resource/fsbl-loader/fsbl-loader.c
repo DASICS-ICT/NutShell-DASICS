@@ -139,9 +139,6 @@ int main(void)
 {
 	int Status;
 	
-	volatile unsigned int *rv_reset_reg = (void *)RV_RESET_REG;
-	volatile unsigned int *gpio_base = (void *)GPIO_BASE;
-
 	int i;
 
 	unsigned int sec_attr;
@@ -162,7 +159,7 @@ int main(void)
 		rv_dram_base += 0x100000;		//section size
 	}
 	//set uncached non-shareable section attribute to shared buffer
-	rv_dram_base = (INTPTR)0x5FF00000;
+	rv_dram_base = (INTPTR)0x6FF00000;
 	Xil_SetTlbAttributes(rv_dram_base, sec_attr);
 
 	/* Load RV_BOOT.bin file from SD card to RV_DRAM_ENTRY */
@@ -185,7 +182,7 @@ int main(void)
   	// xil_printf("Reset RISC-V core.\r\n");
 
 	/* release RISC-V reset signal */
-	gpio_base[0] = 0x1;
+	// gpio_base[0] = 0x1;
 
 	// while(1);
 	RvDiskIOHelper();
@@ -304,12 +301,14 @@ void RvDiskIOHelper(void)
 {
 	volatile unsigned int *rv_shared_buf = (void *)SHARED_BUF_BASE;
 	volatile unsigned int *rv_reset_reg = (void *)RV_RESET_REG;
+	volatile unsigned int *gpio_base = (void *)GPIO_BASE;
 	unsigned int *phy_shared_buf = (void *)(PHY_SHARED_BUF_BASE);
 
 	phy_shared_buf[SDIO_CMD_STATUS_OFFSET] = 0;
 
 	/* release RISC-V reset signal */
-	*rv_reset_reg = 0x0;
+	// *rv_reset_reg = 0x0;
+	gpio_base[0] = 0x1;
 
 	do {
 		unsigned int status = rv_shared_buf[SDIO_CMD_STATUS_OFFSET];
