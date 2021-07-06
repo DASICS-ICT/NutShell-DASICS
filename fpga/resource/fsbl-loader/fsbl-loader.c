@@ -137,6 +137,7 @@ static UINT FileSize = (FILE_SIZE_MB * 1024 * 1024);
 ******************************************************************************/
 int main(void)
 {
+	volatile unsigned int *gpio_base = (void *)GPIO_BASE;
 	int Status;
 	
 	int i;
@@ -171,11 +172,11 @@ int main(void)
 
 	xil_printf("Successfully load RISC-V boot file into DRAM @ 0x%08x \r\n", RV_DRAM_ENTRY);
 
-  if (gpio_base[2] & 0x1) {
-    xil_printf("Pause due to SW0 on PYNQ is pulled up.\r\n");
-    xil_printf("To continue, please pull down SW0.\r\n");
-    while (gpio_base[2] & 0x1) ;
-  }
+	if (gpio_base[2] & 0x1) {
+  		xil_printf("Pause due to SW0 on PYNQ is pulled up.\r\n");
+  		xil_printf("To continue, please pull down SW0.\r\n");
+  		while (gpio_base[2] & 0x1) ;
+  	}
 
 	xil_printf("Passing system contrl to RISC-V core... \r\n");
 
@@ -308,7 +309,9 @@ void RvDiskIOHelper(void)
 
 	/* release RISC-V reset signal */
 	// *rv_reset_reg = 0x0;
+  	xil_printf("transfer control to RISC-V core.\r\n");
 	gpio_base[0] = 0x1;
+  	xil_printf("Reset RISC-V core.\r\n");
 
 	do {
 		unsigned int status = rv_shared_buf[SDIO_CMD_STATUS_OFFSET];
@@ -324,6 +327,8 @@ void RvDiskIOHelper(void)
 		BYTE *buff;
 
 		DRESULT res;
+
+		// xil_printf("SDIO operation: %d \r\n", (status & CMD_TYPE_MASK));
 
 		//check if RISC-V software sends out an SDIO request
 		if ( !(status & CMD_STATUS_MASK) )

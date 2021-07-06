@@ -61,7 +61,9 @@ exec ln -sf ${build_dir}/fsbl/executable.elf ${script_dir}/build/${arch}/fsbl.el
 
 if {$standalone == "true"} {
   set bif_file ${script_dir}/bootgen-${arch}-standalone.bif
-  if { [catch { exec make -C ${script_dir}/../resource/fsbl-loader PRJ_FULL=${project_name}} msg ] } { }
+  if { [catch { exec make -C ${script_dir}/../resource/fsbl-loader PRJ_FULL=${project_name}} msg ] } { 
+    puts $msg
+  }
 } else {
   set bif_file ${script_dir}/bootgen-${arch}.bif
 }
