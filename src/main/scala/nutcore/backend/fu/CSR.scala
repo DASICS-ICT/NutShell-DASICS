@@ -957,7 +957,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     BoringUtils.addSource(readWithScala(perfCntList("Mcycle")._1), "simCycleCnt")
     BoringUtils.addSource(readWithScala(perfCntList("Minstret")._1), "simInstrCnt")
 
-    if (hasPerfCnt) {
+    if (hasPerfCnt && false) { // disable perfcnt for visibility
       // display all perfcnt when nutcoretrap is executed
       val PrintPerfCntToCSV = true
       when (nutcoretrap) {
