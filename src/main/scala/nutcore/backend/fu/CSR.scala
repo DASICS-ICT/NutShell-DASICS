@@ -178,14 +178,14 @@ trait HasExceptionNO {
   def storePageFault      = 15
 
   // Customized exceptions added by DASICS mechanism
-  def dasicsUInstrAccessFault = 16
-  def dasicsSInstrAccessFault = 17
+  def dasicsUInstrAccessFault = 24
+  def dasicsSInstrAccessFault = 25
 
-  def dasicsULoadAccessFault  = 18
-  def dasicsSLoadAccessFault  = 19
+  def dasicsULoadAccessFault  = 26
+  def dasicsSLoadAccessFault  = 27
 
-  def dasicsUStoreAccessFault = 20
-  def dasicsSStoreAccessFault = 21
+  def dasicsUStoreAccessFault = 28
+  def dasicsSStoreAccessFault = 29
 
   val ExcPriority = Seq(
       breakPoint, // TODO: different BP has different priority
@@ -520,7 +520,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     // MaskedRegMap(Mstatus, mstatus, "hffffffffffffffee".U, (x=>{printf("mstatus write: %x time: %d\n", x, GTimer()); x})),
     MaskedRegMap(Mstatus, mstatus, "hffffffffffffffff".U, mstatusUpdateSideEffect),
     MaskedRegMap(Misa, misa), // now MXL, EXT is not changeable
-    MaskedRegMap(Medeleg, medeleg, "h3fbbff".U),
+    MaskedRegMap(Medeleg, medeleg, "h3f00bbff".U),
     MaskedRegMap(Mideleg, mideleg, "h222".U),
     MaskedRegMap(Mie, mie),
     MaskedRegMap(Mtvec, mtvec),
