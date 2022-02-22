@@ -353,12 +353,12 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val pmpaddr3 = RegInit(UInt(XLEN.W), 0.U) 
 
   // Machine-Level DASICS CSRs
-  val dasicsSMainCfg     = RegInit(UInt(XLEN.W), 0.U)
+  val dasicsMainCfg      = RegInit(UInt(XLEN.W), 0.U)
   val dasicsSMainBoundHi = RegInit(UInt(XLEN.W), 0.U)
   val dasicsSMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
   val dasicsMachineMapping = Map(
-    MaskedRegMap(DasicsSMainCfg, dasicsSMainCfg),
+    MaskedRegMap(DasicsSMainCfg, dasicsMainCfg, "hf".U),
     MaskedRegMap(DasicsSMainBoundHi, dasicsSMainBoundHi),
     MaskedRegMap(DasicsSMainBoundLo, dasicsSMainBoundLo)
   )
@@ -391,12 +391,11 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val sideleg = RegInit(UInt(XLEN.W), 0.U)
 
   // Supervisor-Level DASICS CSRs
-  val dasicsUMainCfg     = RegInit(UInt(XLEN.W), 0.U)
   val dasicsUMainBoundHi = RegInit(UInt(XLEN.W), 0.U)
   val dasicsUMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
   val dasicsSupervisorMapping = Map(
-    MaskedRegMap(DasicsUMainCfg, dasicsUMainCfg),
+    MaskedRegMap(DasicsUMainCfg, dasicsMainCfg, "ha".U),
     MaskedRegMap(DasicsUMainBoundHi, dasicsUMainBoundHi),
     MaskedRegMap(DasicsUMainBoundLo, dasicsUMainBoundLo)
   )
@@ -563,9 +562,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   // DASICS Main/Lib wen check
   // Note: when DASICS is enabled, lib functions cannot access CSRs
   def detectInZone(addr: UInt, hi: UInt, lo: UInt, en: Bool) : Bool = en && addr >= lo && addr <= hi
-  val isDasicsActive = dasicsSMainCfg(SCFG_GLB)  // enable DASICS mechanism globally
-  val isSMainEnable = detectInZone(dasicsSMainBoundLo, dasicsSMainBoundHi, 0.U(XLEN.W), isDasicsActive && dasicsSMainCfg(SCFG_ENA))
-  val isUMainEnable = detectInZone(dasicsUMainBoundLo, dasicsUMainBoundHi, 0.U(XLEN.W), isDasicsActive && dasicsUMainCfg(UCFG_ENA))
+  val isSMainEnable = detectInZone(dasicsSMainBoundLo, dasicsSMainBoundHi, 0.U(XLEN.W), dasicsMainCfg(MCFG_SENA))
+  val isUMainEnable = detectInZone(dasicsUMainBoundLo, dasicsUMainBoundHi, 0.U(XLEN.W), dasicsMainCfg(MCFG_UENA))
 
   def detectInTrustedZone(addr: UInt) : Bool = {
     val inSMainZone = detectInZone(addr, dasicsSMainBoundHi, dasicsSMainBoundLo, priviledgeMode === ModeS && isSMainEnable)
@@ -606,15 +604,13 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   ))
   MaskedRegMap.generate(fixMapping, addr, rdataFix, wen && !isIllegalAccess, wdataFix)
 
-  // DASICS -- Act when the last bit of dasicsSMainCfg or dasicsUMainCfg is set
-  when (dasicsSMainCfg(SCFG_CLS) || dasicsUMainCfg(UCFG_CLS))  // Reset all dasics lib registers
+  // DASICS -- Act when the S-CLS or U-CLS bit of dasicsMainCfg is set
+  when (dasicsMainCfg(MCFG_SCLS) || dasicsMainCfg(MCFG_UCLS))  // Reset all dasics lib registers
   {
-    when (dasicsSMainCfg(SCFG_CLS))
+    when (dasicsMainCfg(MCFG_SCLS))
     {
       dasicsUMainBoundHi := 0.U
       dasicsUMainBoundLo := 0.U
-
-      dasicsSMainCfg := Cat(dasicsSMainCfg(XLEN-1, 1), 0.U(1.W))  // Reset CLS bit itself
     }
 
     dasicsLibBoundHiList.foreach(reg => reg := 0.U)
@@ -622,7 +618,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     dasicsLibCfg0 := 0.U
     dasicsLibCfg1 := 0.U
 
-    dasicsUMainCfg := Cat(dasicsUMainCfg(XLEN-1, 1), 0.U(1.W))  // Reset CLS bit itself
+    dasicsMainCfg := Mux(dasicsMainCfg(MCFG_SCLS), Cat(0.U((XLEN-1).W), dasicsMainCfg(MCFG_SENA)),
+                                                   Cat(0.U((XLEN-MCFG_UCLS).W), dasicsMainCfg(MCFG_SCLS, MCFG_SENA)))
   }
 
   // DASICS -- Check LSU DASICS exception
