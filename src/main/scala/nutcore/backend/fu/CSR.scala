@@ -706,10 +706,12 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     dasicsReturnPC := io.cfIn.pc + 4.U
   }
 
+  /* This register should be set by software
   when (aluRedirectValid && !inTrustedZone && !inLibFreeZone && targetInLibFreeZone)  // Jump/branch from untrusted-nonfree to untrusted-free
   {
     dasicsFreeZoneReturnPC := io.cfIn.pc + 4.U
   }
+   */
 
   val aluPermitRedirect = inTrustedZone       || (!inTrustedZone &&  targetInTrustedZone && (aluRedirectTarget === dasicsReturnPC || aluRedirectTarget === dasicsMaincallEntry)) ||
                           targetInLibFreeZone || ( inLibFreeZone && !targetInTrustedZone && !targetInLibFreeZone && aluRedirectTarget === dasicsFreeZoneReturnPC)
