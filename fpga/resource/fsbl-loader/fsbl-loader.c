@@ -104,7 +104,7 @@ static char *SD_File;
 
 static UINT FileSize = (FILE_SIZE_MB * 1024 * 1024);
 
-#define SHARED_BUF_BASE		0x6FFFFE00
+#define SHARED_BUF_BASE 	0x5FFFFE00
 #define PHY_SHARED_BUF_BASE	0x1FFFFE00
 
 #define SDIO_CMD_STATUS_OFFSET		0
@@ -160,7 +160,7 @@ int main(void)
 		rv_dram_base += 0x100000;		//section size
 	}
 	//set uncached non-shareable section attribute to shared buffer
-	rv_dram_base = (INTPTR)0x6FF00000;
+	rv_dram_base = (INTPTR)0x5FF00000;
 	Xil_SetTlbAttributes(rv_dram_base, sec_attr);
 
 	/* Load RV_BOOT.bin file from SD card to RV_DRAM_ENTRY */

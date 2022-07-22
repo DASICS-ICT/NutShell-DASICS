@@ -48,7 +48,7 @@ object PynqSettings {
   def apply() = Map(
     "FPGAPlatform" -> true,
     "NrExtIntr" -> 3,
-    "ResetVector" -> 0x60000000L,
+    "ResetVector" -> 0x50000000L,
     "MemMapBase" -> 0x0000000010000000L,
     "MemMapRegionBits" -> 28,
     "MMIOBase" -> 0x00000000e0000000L,
