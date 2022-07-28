@@ -178,7 +178,7 @@ int main(void)
   		while (gpio_base[2] & 0x1) ;
   	}
 
-	xil_printf("Passing system contrl to RISC-V core... \r\n");
+	xil_printf("Passing system control to RISC-V core... \r\n");
 
   	// xil_printf("Reset RISC-V core.\r\n");
 
