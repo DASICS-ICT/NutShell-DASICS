@@ -310,8 +310,8 @@ void RvDiskIOHelper(void)
 	/* release RISC-V reset signal */
 	// *rv_reset_reg = 0x0;
   	xil_printf("transfer control to RISC-V core.\r\n");
-	gpio_base[0] = 0x1;
   	xil_printf("Reset RISC-V core.\r\n");
+	gpio_base[0] = 0x1;
 
 	do {
 		unsigned int status = rv_shared_buf[SDIO_CMD_STATUS_OFFSET];
