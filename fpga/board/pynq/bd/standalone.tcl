@@ -392,11 +392,11 @@ proc create_hier_cell_hier_clkrst { parentCell nameHier } {
   set clk_wiz_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:clk_wiz:6.0 clk_wiz_0 ]
   set_property -dict [ list \
    CONFIG.CLKIN1_JITTER_PS {100.0} \
-   CONFIG.CLKOUT1_JITTER {153.276} \
-   CONFIG.CLKOUT1_PHASE_ERROR {105.461} \
-   CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {60.000} \
-   CONFIG.CLKOUT2_JITTER {137.681} \
-   CONFIG.CLKOUT2_PHASE_ERROR {105.461} \
+   CONFIG.CLKOUT1_JITTER {159.371} \
+   CONFIG.CLKOUT1_PHASE_ERROR {98.575} \
+   CONFIG.CLKOUT1_REQUESTED_OUT_FREQ {40.000} \
+   CONFIG.CLKOUT2_JITTER {130.958} \
+   CONFIG.CLKOUT2_PHASE_ERROR {98.575} \
    CONFIG.CLKOUT2_REQUESTED_OUT_FREQ {100.000} \
    CONFIG.CLKOUT2_USED {true} \
    CONFIG.CLKOUT3_JITTER {159.475} \
@@ -408,11 +408,11 @@ proc create_hier_cell_hier_clkrst { parentCell nameHier } {
    CONFIG.CLK_OUT1_PORT {coreclk} \
    CONFIG.CLK_OUT2_PORT {uncoreclk} \
    CONFIG.CLK_OUT3_PORT {clk_out3} \
-   CONFIG.MMCM_CLKFBOUT_MULT_F {9.000} \
+   CONFIG.MMCM_CLKFBOUT_MULT_F {10.000} \
    CONFIG.MMCM_CLKIN1_PERIOD {10.000} \
    CONFIG.MMCM_CLKIN2_PERIOD {10.000} \
-   CONFIG.MMCM_CLKOUT0_DIVIDE_F {15.000} \
-   CONFIG.MMCM_CLKOUT1_DIVIDE {9} \
+   CONFIG.MMCM_CLKOUT0_DIVIDE_F {25.000} \
+   CONFIG.MMCM_CLKOUT1_DIVIDE {10} \
    CONFIG.MMCM_CLKOUT2_DIVIDE {1} \
    CONFIG.MMCM_CLKOUT3_DIVIDE {1} \
    CONFIG.MMCM_DIVCLK_DIVIDE {1} \
@@ -1334,8 +1334,7 @@ proc create_root_design { parentCell } {
   connect_bd_net -net xlconcat_0_dout [get_bd_pins rv_system/io_meip] [get_bd_pins xlconcat_0/dout]
 
   # Create address segments
- 
-  assign_bd_address -offset 0x50000000 -range 0x10000000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs rv_system/Nutshell_0/io_frontend/reg0] -force 
+  assign_bd_address -offset 0x50000000 -range 0x10000000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs rv_system/NutShell_0/io_frontend/reg0] -force
   assign_bd_address -offset 0x40000000 -range 0x00001000 -target_address_space [get_bd_addr_spaces processing_system7_0/Data] [get_bd_addr_segs hier_clkrst/axi_gpio_0/S_AXI/Reg] -force
   assign_bd_address -offset 0xE000B000 -range 0x00001000 -target_address_space [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_ENET0] -force
   assign_bd_address -offset 0xF8000000 -range 0x00010000 -target_address_space [get_bd_addr_spaces rv_system/NutShell_0/io_mmio] [get_bd_addr_segs processing_system7_0/S_AXI_GP0/GP0_PS_SLCR_REGS] -force
