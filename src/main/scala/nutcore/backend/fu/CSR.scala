@@ -215,6 +215,8 @@ class CSRIO extends FunctionUnitIO {
   val instrValid = Input(Bool())
   val isBackendException = Input(Bool())
   val lsuIsLoad = Input(Bool())
+  val lsuInSTrustedZone = Input(Bool())
+  val lsuInUTrustedZone = Input(Bool())
   val lsuPermitLibLoad = Input(Bool())
   val lsuPermitLibStore = Input(Bool())
   // for differential testing
@@ -565,6 +567,15 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val isSMainEnable = detectInZone(dasicsSMainBoundLo, dasicsSMainBoundHi, 0.U(XLEN.W), dasicsMainCfg(MCFG_SENA))
   val isUMainEnable = detectInZone(dasicsUMainBoundLo, dasicsUMainBoundHi, 0.U(XLEN.W), dasicsMainCfg(MCFG_UENA))
 
+  // DASICS Load/Store checks are performed in ISU stage for timing considerations
+  // Note: Privilege level cannot be known until EXU stage; however, we can consider DASICS CSRs as static
+  val isuPC = WireInit(0.U(VAddrBits.W))
+  BoringUtils.addSink(isuPC, name = "isu_pc")
+  val isuInSTrustedZone = detectInZone(isuPC, dasicsSMainBoundHi, dasicsSMainBoundLo, isSMainEnable) || !isSMainEnable
+  val isuInUTrustedZone = detectInZone(isuPC, dasicsUMainBoundHi, dasicsUMainBoundLo, isUMainEnable) || !isUMainEnable
+  BoringUtils.addSource(isuInSTrustedZone, name = "isu_in_s_trusted_zone")
+  BoringUtils.addSource(isuInUTrustedZone, name = "isu_in_u_trusted_zone")
+
   def detectInTrustedZone(addr: UInt) : Bool = {
     val inSMainZone = detectInZone(addr, dasicsSMainBoundHi, dasicsSMainBoundLo, priviledgeMode === ModeS && isSMainEnable)
     val inUMainZone = detectInZone(addr, dasicsUMainBoundHi, dasicsUMainBoundLo, priviledgeMode === ModeU && isUMainEnable)
@@ -641,19 +652,19 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
                            (for (i <- 0 until 64 if i % 8 == 0)
                             yield (dasicsLibCfg1(i + 3, i), dasicsLibBoundHiList((i >> 3) + 8), dasicsLibBoundLoList((i >> 3) + 8))))
 
-  val isuPermitLibLoad  = inTrustedZone || dasicsLibSeq.map(cfg => detectInZone(isuAddr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_R))).foldRight(false.B)(_ || _)  // If there exists one pair, that's ok
-  val isuPermitLibStore = inTrustedZone || dasicsLibSeq.map(cfg => detectInZone(isuAddr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_W))).foldRight(false.B)(_ || _)
+  val isuPermitLibLoad  = dasicsLibSeq.map(cfg => detectInZone(isuAddr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_R))).foldRight(false.B)(_ || _)  // If there exists one pair, that's ok
+  val isuPermitLibStore = dasicsLibSeq.map(cfg => detectInZone(isuAddr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_W))).foldRight(false.B)(_ || _)
   BoringUtils.addSource(isuPermitLibLoad, name = "isu_perm_lib_ld")
   BoringUtils.addSource(isuPermitLibStore, name = "isu_perm_lib_st")
 
-  val (lsuIsLoad, lsuPermitLibLoad, lsuPermitLibStore) =
-    (io.lsuIsLoad, io.lsuPermitLibLoad, io.lsuPermitLibStore)
+  val (lsuIsLoad, lsuInSTrustedZone, lsuInUTrustedZone, lsuPermitLibLoad, lsuPermitLibStore) =
+    (io.lsuIsLoad, io.lsuInSTrustedZone, io.lsuInUTrustedZone, io.lsuPermitLibLoad, io.lsuPermitLibStore)
 
   // Seperate access denying and exception raising
-  val lsuSLibLoadDeny : Bool =  lsuIsLoad && priviledgeMode === ModeS && !lsuPermitLibLoad
-  val lsuULibLoadDeny : Bool =  lsuIsLoad && priviledgeMode === ModeU && !lsuPermitLibLoad
-  val lsuSLibStoreDeny: Bool = !lsuIsLoad && priviledgeMode === ModeS && !lsuPermitLibStore
-  val lsuULibStoreDeny: Bool = !lsuIsLoad && priviledgeMode === ModeU && !lsuPermitLibStore
+  val lsuSLibLoadDeny : Bool =  lsuIsLoad && priviledgeMode === ModeS && !lsuInSTrustedZone && !lsuPermitLibLoad
+  val lsuULibLoadDeny : Bool =  lsuIsLoad && priviledgeMode === ModeU && !lsuInUTrustedZone && !lsuPermitLibLoad
+  val lsuSLibStoreDeny: Bool = !lsuIsLoad && priviledgeMode === ModeS && !lsuInSTrustedZone && !lsuPermitLibStore
+  val lsuULibStoreDeny: Bool = !lsuIsLoad && priviledgeMode === ModeU && !lsuInUTrustedZone && !lsuPermitLibStore
   val lsuDeny: Bool = lsuSLibLoadDeny || lsuULibLoadDeny || lsuSLibStoreDeny || lsuULibStoreDeny
   BoringUtils.addSource(lsuDeny, name = "cannot_access_memory")
 
