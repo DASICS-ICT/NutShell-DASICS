@@ -1,3 +1,9 @@
+# NutShell-DASICS
+
+This is an implementation of DASICS (Dynamic in-Address Space Isolation by Code Segment) secure processor based on the open source [NutShell](https://github.com/OSCPU/NutShell) processor.
+
+README of NutShell:
+
 # NutShell (果壳)
 
 NutShell is a processor developed by the OSCPU (Open Source Chip Project by University) team.
