@@ -46,6 +46,7 @@ trait HasNutCoreParameter {
   val EnablePerfCnt = true
   val ExceptionTypes = 30
   val InterruptTypes = 12
+  val ImpID = 0xda220001L // mimpid CSR, for implementation version: DASICS UCAS-OS 2022v1
   // Parameter for Argo's OoO backend
   val EnableMultiIssue = Settings.get("EnableMultiIssue")
   val EnableOutOfOrderExec = Settings.get("EnableOutOfOrderExec")

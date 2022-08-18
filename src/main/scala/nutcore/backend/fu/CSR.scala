@@ -311,7 +311,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
   val mvendorid = RegInit(UInt(XLEN.W), 0.U) // this is a non-commercial implementation
   val marchid = RegInit(UInt(XLEN.W), 0.U) // return 0 to indicate the field is not implemented
-  val mimpid = RegInit(UInt(XLEN.W), 0.U) // provides a unique encoding of the version of the processor implementation
+  val mimpid = RegInit(UInt(XLEN.W), ImpID.U) // provides a unique encoding of the version of the processor implementation
   val mhartid = RegInit(UInt(XLEN.W), 0.U) // the hardware thread running the code
   val mstatus = RegInit(UInt(XLEN.W), "h00001800".U)  // FIXME: sxl and uxl is not set ???
   // val mstatus = RegInit(UInt(XLEN.W), "h8000c0100".U)
