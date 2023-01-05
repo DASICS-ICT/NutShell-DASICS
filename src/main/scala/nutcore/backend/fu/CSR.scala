@@ -186,6 +186,8 @@ trait HasExceptionNO {
 
   def dasicsUStoreAccessFault = 28
   def dasicsSStoreAccessFault = 29
+  def dasicsUEcallFault = 30
+  def dasicsSEcallFault = 31
 
   val ExcPriority = Seq(
       breakPoint, // TODO: different BP has different priority
@@ -203,7 +205,8 @@ trait HasExceptionNO {
 
       // Customized DASICS exceptions
       dasicsSInstrAccessFault, dasicsSLoadAccessFault, dasicsSStoreAccessFault,
-      dasicsUInstrAccessFault, dasicsULoadAccessFault, dasicsUStoreAccessFault
+      dasicsUInstrAccessFault, dasicsULoadAccessFault, dasicsUStoreAccessFault,
+      dasicsUEcallFault, dasicsSEcallFault
   )
 }
 
@@ -879,8 +882,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   csrExceptionVec.map(_ := false.B)
   csrExceptionVec(breakPoint) := io.in.valid && isEbreak
   csrExceptionVec(ecallM) := priviledgeMode === ModeM && io.in.valid && isEcall
-  csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && isEcall
-  csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && isEcall
+  csrExceptionVec(ecallS) := priviledgeMode === ModeS && io.in.valid && isEcall && inTrustedZone
+  csrExceptionVec(ecallU) := priviledgeMode === ModeU && io.in.valid && isEcall && inTrustedZone
   csrExceptionVec(illegalInstr) := (isIllegalAddr || isIllegalAccess) && wen && !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
   csrExceptionVec(loadPageFault) := hasLoadPageFault
   csrExceptionVec(storePageFault) := hasStorePageFault
@@ -890,6 +893,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   csrExceptionVec(dasicsSLoadAccessFault) := lsuSLibLoadFault
   csrExceptionVec(dasicsUStoreAccessFault) := lsuULibStoreFault
   csrExceptionVec(dasicsSStoreAccessFault) := lsuSLibStoreFault
+  csrExceptionVec(dasicsUEcallFault) := priviledgeMode === ModeU && io.in.valid && isEcall && !inTrustedZone
+  csrExceptionVec(dasicsSEcallFault) := priviledgeMode === ModeS && io.in.valid && isEcall && !inTrustedZone
   val iduExceptionVec = io.cfIn.exceptionVec
   val raiseExceptionVec = csrExceptionVec.asUInt() | iduExceptionVec.asUInt()
   val raiseException = raiseExceptionVec.orR

@@ -44,7 +44,7 @@ trait HasNutCoreParameter {
   val DataBytes = DataBits / 8
   val EnableVirtualMemory = if (Settings.get("HasDTLB") && Settings.get("HasITLB")) true else false
   val EnablePerfCnt = true
-  val ExceptionTypes = 30
+  val ExceptionTypes = 32
   val InterruptTypes = 12
   val ImpID = 0xda220002L // mimpid CSR, for implementation version: DASICS UCAS-OS 2022v2
   // Parameter for Argo's OoO backend
