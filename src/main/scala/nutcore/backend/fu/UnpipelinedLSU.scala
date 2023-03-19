@@ -32,6 +32,7 @@ class UnpipeLSUIO extends FunctionUnitIO {
   val dtlbPF = Output(Bool()) // TODO: refactor it for new backend
   val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
   val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
+  val dasicsDeny: Bool = Output(Bool())
 }
 
 class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
@@ -293,6 +294,7 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
 
     io.loadAddrMisaligned := lsExecUnit.io.loadAddrMisaligned
     io.storeAddrMisaligned := lsExecUnit.io.storeAddrMisaligned
+  io.dasicsDeny := cannotAccessMemory
 }
 
 class LSExecUnit extends NutCoreModule {
@@ -437,6 +439,7 @@ class LSExecUnit extends NutCoreModule {
 
   io.loadAddrMisaligned :=  valid && !isStore && !isAMO && !addrAligned
   io.storeAddrMisaligned := valid && (isStore || isAMO) && !addrAligned
+  io.dasicsDeny := DontCare
 
   Debug(io.loadAddrMisaligned || io.storeAddrMisaligned, "misaligned addr detected\n")
 
