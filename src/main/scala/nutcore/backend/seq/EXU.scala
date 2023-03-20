@@ -93,7 +93,11 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   
   io.out.bits.decode := DontCare
   (io.out.bits.decode.ctrl, io.in.bits.ctrl) match { case (o, i) =>
-    o.rfWen := i.rfWen && (!lsuTlbPF && !lsu.io.loadAddrMisaligned && !lsu.io.storeAddrMisaligned || !fuValids(FuType.lsu)) && !(csr.io.wenFix && fuValids(FuType.csr))
+    o.rfWen :=
+      i.rfWen && (
+        !lsuTlbPF && !lsu.io.loadAddrMisaligned && !lsu.io.storeAddrMisaligned && !lsu.io.dasicsDeny ||
+          !fuValids(FuType.lsu)
+      ) && !(csr.io.wenFix && fuValids(FuType.csr))
     o.rfDest := i.rfDest
     o.fuType := i.fuType
   }
