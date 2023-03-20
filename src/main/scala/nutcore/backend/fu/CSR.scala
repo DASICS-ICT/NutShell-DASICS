@@ -363,7 +363,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsSMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
   val dasicsMachineMapping = Map(
-    MaskedRegMap(DasicsSMainCfg, dasicsMainCfg, "hf".U),
+    MaskedRegMap(DasicsSMainCfg, dasicsMainCfg, "hf".U(XLEN.W), MaskedRegMap.NoSideEffect, "hf".U(XLEN.W)),
     MaskedRegMap(DasicsSMainBoundHi, dasicsSMainBoundHi),
     MaskedRegMap(DasicsSMainBoundLo, dasicsSMainBoundLo)
   )
@@ -400,7 +400,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsUMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
   val dasicsSupervisorMapping = Map(
-    MaskedRegMap(DasicsUMainCfg, dasicsMainCfg, "ha".U),
+    MaskedRegMap(DasicsUMainCfg, dasicsMainCfg, "ha".U(XLEN.W), MaskedRegMap.NoSideEffect, "ha".U(XLEN.W)),
     MaskedRegMap(DasicsUMainBoundHi, dasicsUMainBoundHi),
     MaskedRegMap(DasicsUMainBoundLo, dasicsUMainBoundLo)
   )
@@ -410,10 +410,10 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   }
 
   // User-Level CSRs
-  val ustatusWmask = "h11".U  // UPIE and UIE
+  val ustatusWmask = "h11".U(XLEN.W)  // UPIE and UIE
   val ustatusRmask = ustatusWmask
-  val uieMask = "h111".U & sideleg
-  val uipMask = "h111".U & sideleg
+  val uieMask = "h111".U(XLEN.W) & sideleg
+  val uipMask = "h111".U(XLEN.W) & sideleg
   val uepc = Reg(UInt(XLEN.W))
   val ucause = RegInit(UInt(XLEN.W), 0.U)
   val uscratch = RegInit(UInt(XLEN.W), 0.U)
@@ -472,7 +472,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   // CSR reg map
   val userMapping = if (!HasNExtension) Nil else Map(
     // User Trap Setup
-    MaskedRegMap(Ustatus, mstatus, ustatusWmask, mstatusUpdateSideEffect, ustatusRmask),
+    MaskedRegMap(Ustatus, mstatus, ustatusWmask, MaskedRegMap.NoSideEffect, ustatusRmask),
     MaskedRegMap(Uie, mie, uieMask, MaskedRegMap.Unwritable, uieMask),
     MaskedRegMap(Utvec, utvec),
 
