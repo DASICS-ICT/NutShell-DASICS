@@ -1,5 +1,6 @@
 ### Project Specific stuff
 test_run_dir/*
+.bsp
 ### XilinxISE template
 # intermediate build files
 *.bgn
@@ -348,6 +349,7 @@ fpga/.Xil/
 
 # vscode temp file
 .vscode/
+.bloop
 
 # mill bsp for intellij idea
 .bsp/
