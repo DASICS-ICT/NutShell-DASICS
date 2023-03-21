@@ -363,8 +363,12 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsSMainBoundHi = RegInit(UInt(XLEN.W), 0.U)
   val dasicsSMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
+  val dasicsSMainCfgWMask = "h3".U(XLEN.W)
+  val dasicsSMainCfgRMask = dasicsSMainCfgWMask
+  val dasicsSMainCfgClsMask = 1.U(XLEN.W) << MCFG_SCLS.U
+
   val dasicsMachineMapping = Map(
-    MaskedRegMap(DasicsSMainCfg, dasicsMainCfg, "hf".U(XLEN.W), MaskedRegMap.NoSideEffect, "hf".U(XLEN.W)),
+    MaskedRegMap(DasicsSMainCfg, dasicsMainCfg, dasicsSMainCfgWMask, MaskedRegMap.NoSideEffect, dasicsSMainCfgRMask),
     MaskedRegMap(DasicsSMainBoundHi, dasicsSMainBoundHi),
     MaskedRegMap(DasicsSMainBoundLo, dasicsSMainBoundLo)
   )
@@ -400,8 +404,12 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsUMainBoundHi = RegInit(UInt(XLEN.W), 0.U)
   val dasicsUMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
+  val dasicsUMainCfgWMask = "h2".U(XLEN.W)
+  val dasicsUMainCfgRMask = dasicsUMainCfgWMask
+  val dasicsUMainCfgClsMask = 1.U(XLEN.W) << MCFG_UCLS.U
+
   val dasicsSupervisorMapping = Map(
-    MaskedRegMap(DasicsUMainCfg, dasicsMainCfg, "ha".U(XLEN.W), MaskedRegMap.NoSideEffect, "ha".U(XLEN.W)),
+    MaskedRegMap(DasicsUMainCfg, dasicsMainCfg, dasicsUMainCfgWMask, MaskedRegMap.NoSideEffect, dasicsUMainCfgRMask),
     MaskedRegMap(DasicsUMainBoundHi, dasicsUMainBoundHi),
     MaskedRegMap(DasicsUMainBoundLo, dasicsUMainBoundLo)
   )
@@ -499,8 +507,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     // Supervisor Trap Setup
     MaskedRegMap(Sstatus, mstatus, sstatusWmask, mstatusUpdateSideEffect, sstatusRmask),
 
-    MaskedRegMap(Sedeleg, sedeleg),
-    MaskedRegMap(Sideleg, sideleg),
+    MaskedRegMap(Sedeleg, sedeleg, medeleg),
+    MaskedRegMap(Sideleg, sideleg, mideleg),
     MaskedRegMap(Sie, mie, sieMask, MaskedRegMap.NoSideEffect, sieMask),
     MaskedRegMap(Stvec, stvec),
     MaskedRegMap(Scounteren, scounteren),
@@ -620,9 +628,10 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   MaskedRegMap.generate(fixMapping, addr, rdataFix, wen && !isIllegalAccess, wdataFix)
 
   // DASICS -- Act when the S-CLS or U-CLS bit of dasicsMainCfg is set
-  when (dasicsMainCfg(MCFG_SCLS) || dasicsMainCfg(MCFG_UCLS))  // Reset all dasics lib registers
+  when ((addr === DasicsSMainCfg.U || addr === DasicsUMainCfg.U) &&
+    wen && ((wdata & (dasicsSMainCfgClsMask | dasicsUMainCfgClsMask)) =/= 0.U))  // Reset all dasics lib registers
   {
-    when (dasicsMainCfg(MCFG_SCLS))
+    when ((wdata & (dasicsSMainCfgClsMask)) =/= 0.U)
     {
       dasicsUMainBoundHi := 0.U
       dasicsUMainBoundLo := 0.U
@@ -633,8 +642,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     dasicsLibCfg0 := 0.U
     dasicsLibCfg1 := 0.U
 
-    dasicsMainCfg := Mux(dasicsMainCfg(MCFG_SCLS), Cat(0.U((XLEN-1).W), dasicsMainCfg(MCFG_SENA)),
-                                                   Cat(0.U((XLEN-MCFG_UCLS).W), dasicsMainCfg(MCFG_SCLS, MCFG_SENA)))
+    dasicsMaincallEntry := 0.U
+    dasicsReturnPC := 0.U
+    dasicsFreeZoneReturnPC := 0.U
   }
 
   // DASICS -- Check LSU DASICS exception
@@ -1201,6 +1211,61 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     difftest.io.sscratch := RegNext(sscratch)
     difftest.io.mideleg := RegNext(mideleg)
     difftest.io.medeleg := RegNext(medeleg)
+
+    if (HasNExtension) {
+      difftest.io.ustatus := RegNext(mstatus & ustatusRmask)
+      difftest.io.uepc := RegNext(uepc)
+      difftest.io.utval := RegNext(utval)
+      difftest.io.utvec := RegNext(utvec)
+      difftest.io.ucause := RegNext(ucause)
+      difftest.io.uscratch := RegNext(uscratch)
+      difftest.io.sideleg := RegNext(sideleg)
+      difftest.io.sedeleg := RegNext(sedeleg)
+    }
+
+    difftest.io.dsmcfg := RegNext(dasicsMainCfg & dasicsSMainCfgRMask)
+    difftest.io.dsmbound0 := RegNext(dasicsSMainBoundHi)
+    difftest.io.dsmbound1 := RegNext(dasicsSMainBoundLo)
+    difftest.io.dumcfg := RegNext(dasicsMainCfg & dasicsUMainCfgRMask)
+    difftest.io.dumbound0 := RegNext(dasicsUMainBoundHi)
+    difftest.io.dumbound1 := RegNext(dasicsUMainBoundLo)
+    difftest.io.dlcfg0 := RegNext(dasicsLibCfg0)
+    difftest.io.dlcfg1 := RegNext(dasicsLibCfg1)
+    difftest.io.dlbound0 := RegNext(dasicsLibBoundHiList(0))
+    difftest.io.dlbound1 := RegNext(dasicsLibBoundLoList(0))
+    difftest.io.dlbound2 := RegNext(dasicsLibBoundHiList(1))
+    difftest.io.dlbound3 := RegNext(dasicsLibBoundLoList(1))
+    difftest.io.dlbound4 := RegNext(dasicsLibBoundHiList(2))
+    difftest.io.dlbound5 := RegNext(dasicsLibBoundLoList(2))
+    difftest.io.dlbound6 := RegNext(dasicsLibBoundHiList(3))
+    difftest.io.dlbound7 := RegNext(dasicsLibBoundLoList(3))
+    difftest.io.dlbound8 := RegNext(dasicsLibBoundHiList(4))
+    difftest.io.dlbound9 := RegNext(dasicsLibBoundLoList(4))
+    difftest.io.dlbound10 := RegNext(dasicsLibBoundHiList(5))
+    difftest.io.dlbound11 := RegNext(dasicsLibBoundLoList(5))
+    difftest.io.dlbound12 := RegNext(dasicsLibBoundHiList(6))
+    difftest.io.dlbound13 := RegNext(dasicsLibBoundLoList(6))
+    difftest.io.dlbound14 := RegNext(dasicsLibBoundHiList(7))
+    difftest.io.dlbound15 := RegNext(dasicsLibBoundLoList(7))
+    difftest.io.dlbound16 := RegNext(dasicsLibBoundHiList(8))
+    difftest.io.dlbound17 := RegNext(dasicsLibBoundLoList(8))
+    difftest.io.dlbound18 := RegNext(dasicsLibBoundHiList(9))
+    difftest.io.dlbound19 := RegNext(dasicsLibBoundLoList(9))
+    difftest.io.dlbound20 := RegNext(dasicsLibBoundHiList(10))
+    difftest.io.dlbound21 := RegNext(dasicsLibBoundLoList(10))
+    difftest.io.dlbound22 := RegNext(dasicsLibBoundHiList(11))
+    difftest.io.dlbound23 := RegNext(dasicsLibBoundLoList(11))
+    difftest.io.dlbound24 := RegNext(dasicsLibBoundHiList(12))
+    difftest.io.dlbound25 := RegNext(dasicsLibBoundLoList(12))
+    difftest.io.dlbound26 := RegNext(dasicsLibBoundHiList(13))
+    difftest.io.dlbound27 := RegNext(dasicsLibBoundLoList(13))
+    difftest.io.dlbound28 := RegNext(dasicsLibBoundHiList(14))
+    difftest.io.dlbound29 := RegNext(dasicsLibBoundLoList(14))
+    difftest.io.dlbound30 := RegNext(dasicsLibBoundHiList(15))
+    difftest.io.dlbound31 := RegNext(dasicsLibBoundLoList(15))
+    difftest.io.dmaincall := RegNext(dasicsMaincallEntry)
+    difftest.io.dretpc := RegNext(dasicsReturnPC)
+    difftest.io.dretpcfz := RegNext(dasicsFreeZoneReturnPC)
 
     val difftestArchEvent = Module(new DifftestArchEvent)
     difftestArchEvent.io.clock := clock
