@@ -1,4 +1,4 @@
 [submodule "difftest"]
 	path = difftest
-	url = https://gitee.com/xuyb1999/difftest.git
+	url = https://github.com/DASICS-ICT/difftest.git
 	branch = dev-nemu-difftest
