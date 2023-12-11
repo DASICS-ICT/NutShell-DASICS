@@ -57,14 +57,30 @@ trait HasCSRConst {
   val Time          = 0xC01
   val Instret       = 0xC02
   
-  // User DASICS Registers
+    // User DASICS Registers
+  val DasicsLibCfgBase = 0x880
+  // todo: to be modified, remove blank
   val DasicsLibCfg0 = 0x881
   val DasicsLibCfg1 = 0x882
-  val DasicsLibBoundBase = 0x883  // 16 sets of DASICS-Lib registers, upper-lower
+  // todo: change current (Hi,Lo) to (Lo,Hi)
+  val DasicsLibBoundBase = 0x890  // 16 sets of DASICS-Lib registers, (Lo,Hi)
 
-  val DasicsMaincallEntry = 0x8A3
-  val DasicsReturnPC = 0x8A4
-  val DasicsFreeZoneReturnPC = 0x8A5
+  val DasicsJmpCfgBase = 0x8C8
+  val DasicsJmpBoundBase = 0x8C0 // 4 sets of DASICS-Jump registers, (Lo,Hi)
+
+  val DasicsMaincallEntry = 0x8B0
+  val DasicsReturnPC = 0x8B1
+  val DasicsActiveZoneReturnPC = 0x8B2
+
+  // Supervisor DASICS Protection
+  val DasicsUMainCfg     = 0x9E0
+  val DasicsUMainBoundHi = 0x9E3
+  val DasicsUMainBoundLo = 0x9E2
+
+  // Machine DASICS Registers
+  val DasicsSMainCfg     = 0xBC0
+  val DasicsSMainBoundHi = 0xBC3
+  val DasicsSMainBoundLo = 0xBC2
 
   // Supervisor Trap Setup
   val Sstatus       = 0x100
@@ -83,11 +99,6 @@ trait HasCSRConst {
 
   // Supervisor Protection and Translation
   val Satp          = 0x180
-
-  // Supervisor DASICS Protection
-  val DasicsUMainCfg     = 0x5C0
-  val DasicsUMainBoundHi = 0x5C1
-  val DasicsUMainBoundLo = 0x5C2
 
   // Machine Information Registers 
   val Mvendorid     = 0xF11 
@@ -126,11 +137,6 @@ trait HasCSRConst {
   // Machine Counter Setup (not implemented)
   // Debug/Trace Registers (shared with Debug Mode) (not implemented)
   // Debug Mode Registers (not implemented)
-
-  // Machine DASICS Registers
-  val DasicsSMainCfg     = 0xBC0
-  val DasicsSMainBoundHi = 0xBC1
-  val DasicsSMainBoundLo = 0xBC2
 
   def privEcall  = 0x000.U
   def privEbreak = 0x001.U
@@ -432,8 +438,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   // User-Level DASICS CSRs
   val dasicsLibBoundHiList = List.fill(dasicsLibGroups)(RegInit(UInt(XLEN.W), 0.U))
   val dasicsLibBoundLoList = List.fill(dasicsLibGroups)(RegInit(UInt(XLEN.W), 0.U))
-  val dasicsLibBoundHiMapping = (0 until dasicsLibGroups).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2      , dasicsLibBoundHiList(i)) }
-  val dasicsLibBoundLoMapping = (0 until dasicsLibGroups).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 + 0x1, dasicsLibBoundLoList(i)) }
+  val dasicsLibBoundHiMapping = (0 until dasicsLibGroups).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2  + 0x1, dasicsLibBoundHiList(i)) }
+  val dasicsLibBoundLoMapping = (0 until dasicsLibGroups).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2, dasicsLibBoundLoList(i)) }
 
   val dasicsLibCfg0  = RegInit(UInt(XLEN.W), 0.U)
   val dasicsLibCfg1  = RegInit(UInt(XLEN.W), 0.U)
@@ -446,7 +452,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(DasicsLibCfg1, dasicsLibCfg1),
     MaskedRegMap(DasicsMaincallEntry, dasicsMaincallEntry),
     MaskedRegMap(DasicsReturnPC, dasicsReturnPC),
-    MaskedRegMap(DasicsFreeZoneReturnPC, dasicsFreeZoneReturnPC)
+    MaskedRegMap(DasicsFreeZoneReturnPC, DasicsActiveZoneReturnPC)
   ) ++ dasicsLibBoundHiMapping ++ dasicsLibBoundLoMapping
 
   val dasicsMapping = dasicsMachineMapping ++ dasicsSupervisorMapping ++ dasicsUserMapping
@@ -716,17 +722,18 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val aluRedirectValid = WireInit(false.B)
   val aluRedirectTarget = WireInit(0.U(XLEN.W))
   val aluIsPulpret = WireInit(false.B)
+  val aluIsDasicscall = WireInit(false.B)
 
   BoringUtils.addSink(aluRedirectValid, "redirect_valid")
   BoringUtils.addSink(aluRedirectTarget, "redirect_target")
   BoringUtils.addSink(aluIsPulpret, "is_pulpret")
-
+  BoringUtils.addSink(aluIsDasicscall, "is_dasicscall")
   def detectInLibFreeZone(addr: UInt, trustedZone: Bool) : Bool = !trustedZone && dasicsLibSeq.map(cfg => detectInZone(addr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_X))).foldRight(false.B)(_ || _)
   val inLibFreeZone = detectInLibFreeZone(io.cfIn.pc, inTrustedZone)
   val targetInTrustedZone = detectInTrustedZone(aluRedirectTarget)
   val targetInLibFreeZone = detectInLibFreeZone(aluRedirectTarget, targetInTrustedZone)
 
-  when (aluRedirectValid && inTrustedZone && !targetInTrustedZone && !aluIsPulpret)  // Jump/branch from trusted to untrusted
+  when (aluRedirectValid && inTrustedZone && !targetInTrustedZone && (!aluIsPulpret || aluIsDasicscall))  // Jump/branch from trusted to untrusted
   {
     dasicsReturnPC := io.cfIn.pc + 4.U
   }

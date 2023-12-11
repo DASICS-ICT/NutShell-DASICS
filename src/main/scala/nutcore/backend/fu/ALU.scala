@@ -59,9 +59,11 @@ object ALUOpType {
 
   // for dasics protection
   def pulpret = "b1111110".U  // Use func5 to make difference
+  def dasicscall_j = "b1111000".U
+  def dasicscall_jr ="b1111010".U
 
   def isAdd(func: UInt) = func(6)
-  def pcPlus2(func: UInt) = func(5)
+  // def pcPlus2(func: UInt) = func(5)
   def isBru(func: UInt) = func(4)
   def isBranch(func: UInt) = !func(3)
   def isJump(func: UInt) = isBru(func) && !isBranch(func)
@@ -138,6 +140,7 @@ class ALU(hasBru: Boolean = false) extends NutCoreModule {
   BoringUtils.addSource(io.redirect.valid, "redirect_valid")
   BoringUtils.addSource(io.redirect.target, "redirect_target")
   BoringUtils.addSource(valid && func === ALUOpType.pulpret, "is_pulpret")
+  BoringUtils.addSource(valid && (func === ALUOpType.dasicscall_j || func === ALUOpType.dasicscall_jr), "is_dasicscall")
 
   Debug(valid && isBru, "tgt %x, valid:%d, npc: %x, pdwrong: %x\n", io.redirect.target, io.redirect.valid, io.cfIn.pnpc, predictWrong)
   Debug(valid && isBru, "taken:%d addrRes:%x src1:%x src2:%x func:%x\n", taken, adderRes, src1, src2, func)
