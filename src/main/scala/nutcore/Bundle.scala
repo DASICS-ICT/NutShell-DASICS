@@ -194,3 +194,4 @@ class DistributedCSRIO extends NutCoreBundle {
     val addr = Output(UInt(12.W))
     val data = Output(UInt(XLEN.W))
   })
+}

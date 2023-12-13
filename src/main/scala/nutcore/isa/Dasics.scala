@@ -9,7 +9,7 @@ object DasicsInstr extends HasInstrType {
   def DASICSCALL_JR = BitPat("b?????????????????001?????0001011")
 
   val table = Array(
-    PULPRET        -> List(InstrI, FuType.bru, ALUOpType.pulpret)
+    PULPRET        -> List(InstrI, FuType.bru, ALUOpType.pulpret),
     DASICSCALL_J   -> List(InstrJ, FuType.bru, ALUOpType.dasicscall_j),
     DASICSCALL_JR  -> List(InstrI, FuType.bru, ALUOpType.dasicscall_jr)
   )
