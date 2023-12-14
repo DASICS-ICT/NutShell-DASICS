@@ -8,14 +8,6 @@ import chisel3.util._
 import utils._
 import nutcore._
 import nutcore.HasCSRConst
-trait DasicsConst {
-  val NumDasicsMemBounds  = 16  // For load/store
-  val NumDasicsJumpBounds = 4   // For jal/jalr
-  // 8 bytes of granularity
-  val DasicsGrain         = 8
-  val DasicsGrainBit      = log2Ceil(DasicsGrain)
-
-}
 object DasicsOp{
   def read   = "b00".U
   def write  = "b01".U
@@ -78,7 +70,7 @@ class DasicsControlFlow extends NutCoreBundle {
   })
 }
 
-class DasicsEntry extends NutCoreBundle with DasicsConst {
+class DasicsEntry extends NutCoreBundle with HasDasicsConst {
 
   val cfg = new DasicsMemConfig
   val boundHi, boundLo = UInt(XLEN.W)
@@ -101,7 +93,7 @@ class DasicsEntry extends NutCoreBundle with DasicsConst {
   }
 }
 
-class DasicsJumpEntry extends NutCoreBundle with DasicsConst {
+class DasicsJumpEntry extends NutCoreBundle with HasDasicsConst {
 
   val cfg = new DasicsJumpConfig
   val boundHi, boundLo = UInt(XLEN.W)
@@ -124,7 +116,7 @@ class DasicsJumpEntry extends NutCoreBundle with DasicsConst {
   }
 }
 
-trait DasicsMethod extends DasicsConst { this: HasNutCoreParameter =>
+trait DasicsMethod extends HasDasicsConst { this: HasNutCoreParameter =>
   def dasicsMemInit(): (Vec[UInt], Vec[UInt]) = {
     val dasicsMemCfgPerCSR = XLEN / DasicsMemConfig.getWidth
     val cfgs = WireInit(0.U.asTypeOf(Vec(NumDasicsMemBounds / dasicsMemCfgPerCSR, UInt(XLEN.W))))
@@ -225,28 +217,28 @@ trait DasicsMethod extends DasicsConst { this: HasNutCoreParameter =>
   private object DasicsEntry extends DasicsEntry
 }
 
-class DasicsMemIO extends NutCoreBundle with DasicsConst {
+class DasicsMemIO extends NutCoreBundle with HasDasicsConst {
   val distribute_csr: DistributedCSRIO = Flipped(new DistributedCSRIO())
   val entries: Vec[DasicsEntry] = Output(Vec(NumDasicsMemBounds, new DasicsEntry))
 }
 
-class DasicsJumpIO extends NutCoreBundle with DasicsConst {
+class DasicsJumpIO extends NutCoreBundle with HasDasicsConst {
   val distribute_csr: DistributedCSRIO = Flipped(new DistributedCSRIO())
   val entries: Vec[DasicsJumpEntry] = Output(Vec(NumDasicsJumpBounds, new DasicsJumpEntry))
   val control_flow = new DasicsControlFlow
 }
 
-class DasicsReqBundle extends NutCoreBundle with DasicsConst {
+class DasicsReqBundle extends NutCoreBundle with HasDasicsConst {
   val addr = Output(UInt(VAddrBits.W))
   val inUntrustedZone = Output(Bool())
   val operation = Output(DasicsOp())
 }
 
-class DasicsRespBundle extends NutCoreBundle with DasicsConst{
+class DasicsRespBundle extends NutCoreBundle with HasDasicsConst{
   val dasics_fault = Output(DasicsCheckFault())
 }
 
-class DasicsMemCheckerIO extends NutCoreBundle with DasicsConst{
+class DasicsMemCheckerIO extends NutCoreBundle with HasDasicsConst{
   val mode = Input(UInt(4.W))
   val resource = Flipped(Output(Vec(NumDasicsMemBounds, new DasicsEntry)))
   val req = Flipped(Valid(new DasicsReqBundle()))
@@ -261,7 +253,7 @@ class DasicsMemCheckerIO extends NutCoreBundle with DasicsConst{
   }
 }
 
-class DasicsJumpCheckerIO extends NutCoreBundle with DasicsConst{
+class DasicsJumpCheckerIO extends NutCoreBundle with HasDasicsConst{
   val pc   = Input(UInt(VAddrBits.W))
   val mode = Input(UInt(4.W))
   val contro_flow = Flipped(new DasicsControlFlow)
@@ -300,7 +292,7 @@ class JumpDasics extends NutCoreModule
   val io: DasicsJumpIO = IO(new DasicsJumpIO())
 
   private val dasics = Wire(Vec(NumDasicsJumpBounds, new DasicsJumpEntry))
-  val mapping = dasicsGenJumpMapping(jump_init = dasicsJumpInit, jumpCfgBase = DasicsJmpCfgBase, jumpBoundBase = DasicsJmpBoundBase, jumpEntries = dasics)
+  val mapping = dasicsGenJumpMapping(jump_init = dasicsJumpInit, jumpCfgBase = DasicsJumpCfgBase, jumpBoundBase = DasicsJumpBoundBase, jumpEntries = dasics)
 
   private val dasics_main_call = RegInit(0.U(XLEN.W))
   private val dasics_return_pc = RegInit(0.U(XLEN.W))
@@ -355,7 +347,7 @@ class JumpDasics extends NutCoreModule
 
 }
 
-trait DasicsCheckerMethod extends DasicsConst{
+trait DasicsCheckerMethod extends HasDasicsConst{
   //def dasics_check(addr:UInt, isUntrustedZone: Bool, op: UInt, dasics: Vec[DasicsEntry]): Bool
   def dasics_mem_check(req: Valid[DasicsReqBundle], dasics: Vec[DasicsEntry]): Bool = {
     val inBoundVec = VecInit(dasics.map(entry => entry.cfg.valid && entry.boundMatch(req.bits.addr)))
@@ -389,7 +381,7 @@ trait DasicsCheckerMethod extends DasicsConst{
 
 class DasicsMemChecker extends NutCoreModule
   with DasicsCheckerMethod
-  with DasicsConst
+  with HasDasicsConst
   with HasCSRConst
 {
   val io = IO(new DasicsMemCheckerIO)
@@ -418,7 +410,7 @@ class DasicsMemChecker extends NutCoreModule
 
 class DasicsJumpChecker extends NutCoreModule
   with DasicsCheckerMethod
-  with DasicsConst
+  with HasDasicsConst
   with HasCSRConst
 {
   val io = IO(new DasicsJumpCheckerIO)
@@ -447,7 +439,7 @@ class DasicsJumpChecker extends NutCoreModule
   }
 }
 
-class DasicsBranchIO extends NutCoreBundle with DasicsConst {
+class DasicsBranchIO extends NutCoreBundle with HasDasicsConst {
   val distribute_csr: DistributedCSRIO = Flipped(new DistributedCSRIO())
   val mode: UInt = Input(UInt(2.W))
   val valid: Bool = Input(Bool())
@@ -462,7 +454,7 @@ class DasicsBranchChecker extends NutCoreModule
   val w = io.distribute_csr.w
   val dasics: Vec[DasicsJumpEntry] = Wire(Vec(NumDasicsJumpBounds, new DasicsJumpEntry))
   val mapping: Map[Int, (UInt, UInt, UInt => UInt, UInt)] = dasicsGenJumpMapping(
-    jump_init = dasicsJumpInit, jumpCfgBase = DasicsJmpCfgBase, jumpBoundBase = DasicsJmpBoundBase, jumpEntries = dasics
+    jump_init = dasicsJumpInit, jumpCfgBase = DasicsJumpCfgBase, jumpBoundBase = DasicsJumpBoundBase, jumpEntries = dasics
   )
   private val dasics_main_call = RegInit(0.U(XLEN.W))
   private val dasics_return_pc = RegInit(0.U(XLEN.W))
@@ -517,7 +509,7 @@ class DasicsMainCfg extends NutCoreBundle {
   }
 }
 
-class DasicsMainBound extends NutCoreBundle with DasicsConst {
+class DasicsMainBound extends NutCoreBundle with HasDasicsConst {
   val boundHi, boundLo = UInt((VAddrBits - DasicsGrainBit).W)
 
   def getPcTags(startAddr: UInt): Vec[Bool] = {

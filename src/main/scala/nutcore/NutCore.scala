@@ -67,8 +67,11 @@ trait HasNutCoreLog { this: RawModule =>
 }
 
 trait HasDasicsConst {
-  val dasicsLibGroups = 16
-
+  val NumDasicsMemBounds  = 16  // For load/store
+  val NumDasicsJumpBounds = 4   // For jal/jalr
+  // 8 bytes of granularity
+  val DasicsGrain         = 8
+  val DasicsGrainBit      = log2Ceil(DasicsGrain)
   def MCFG_UCLS = 0x3
   def MCFG_SCLS = 0x2
   def MCFG_UENA = 0x1

@@ -60,12 +60,10 @@ trait HasCSRConst {
     // User DASICS Registers
   val DasicsLibCfgBase = 0x880
   // todo: to be modified, remove blank
-  val DasicsLibCfg0 = 0x881
-  val DasicsLibCfg1 = 0x882
   val DasicsLibBoundBase = 0x890  // 16 sets of DASICS-Lib registers, (Lo,Hi)
 
-  val DasicsJmpCfgBase = 0x8C8
-  val DasicsJmpBoundBase = 0x8C0 // 4 sets of DASICS-Jump registers, (Lo,Hi)
+  val DasicsJumpCfgBase = 0x8C8
+  val DasicsJumpBoundBase = 0x8C0 // 4 sets of DASICS-Jump registers, (Lo,Hi)
 
   val DasicsMaincallEntry = 0x8B0
   val DasicsReturnPC = 0x8B1
@@ -435,24 +433,30 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val utval = RegInit(UInt(XLEN.W), 0.U)
 
   // User-Level DASICS CSRs
-  val dasicsLibBoundHiList = List.fill(dasicsLibGroups)(RegInit(UInt(XLEN.W), 0.U))
-  val dasicsLibBoundLoList = List.fill(dasicsLibGroups)(RegInit(UInt(XLEN.W), 0.U))
-  val dasicsLibBoundHiMapping = (0 until dasicsLibGroups).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 + 0x1, dasicsLibBoundHiList(i)) }
-  val dasicsLibBoundLoMapping = (0 until dasicsLibGroups).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 , dasicsLibBoundLoList(i)) }
+  val dasicsLibBoundHiList = List.fill(NumDasicsMemBounds)(RegInit(UInt(XLEN.W), 0.U))
+  val dasicsLibBoundLoList = List.fill(NumDasicsMemBounds)(RegInit(UInt(XLEN.W), 0.U))
+  val dasicsLibBoundHiMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 + 0x1, dasicsLibBoundHiList(i)) }
+  val dasicsLibBoundLoMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 , dasicsLibBoundLoList(i)) }
 
-  val dasicsLibCfg0  = RegInit(UInt(XLEN.W), 0.U)
-  val dasicsLibCfg1  = RegInit(UInt(XLEN.W), 0.U)
+  val dasicsJumpBoundHiList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
+  val dasicsJumpBoundLoList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
+  val dasicsJumpBoundHiMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 + 0x1, dasicsJumpBoundHiList(i)) }
+  val dasicsJumpBoundLoMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 , dasicsJumpBoundLoList(i)) }
+
+  val dasicsLibCfgBase  = RegInit(UInt(XLEN.W), 0.U)
+  val dasicsJumpCfgBase  = RegInit(UInt(XLEN.W), 0.U)
+
   val dasicsReturnPC = RegInit(UInt(XLEN.W), 0.U)
   val dasicsActiveZoneReturnPC = RegInit(UInt(XLEN.W), 0.U)
   val dasicsMaincallEntry    = RegInit(UInt(XLEN.W), 0.U)
 
   val dasicsUserMapping = Map(
-    MaskedRegMap(DasicsLibCfg0, dasicsLibCfg0),
-    MaskedRegMap(DasicsLibCfg1, dasicsLibCfg1),
+    MaskedRegMap(DasicsLibCfgBase, dasicsLibCfgBase),
+    MaskedRegMap(DasicsJumpCfgBase, dasicsJumpCfgBase),
     MaskedRegMap(DasicsMaincallEntry, dasicsMaincallEntry),
     MaskedRegMap(DasicsReturnPC, dasicsReturnPC),
     MaskedRegMap(DasicsActiveZoneReturnPC, dasicsActiveZoneReturnPC)
-  ) ++ dasicsLibBoundHiMapping ++ dasicsLibBoundLoMapping
+  ) ++ dasicsLibBoundLoMapping ++ dasicsLibBoundHiMapping ++ dasicsJumpBoundLoMapping ++ dasicsJumpBoundHiMapping
 
   val dasicsMapping = dasicsMachineMapping ++ dasicsSupervisorMapping ++ dasicsUserMapping
 
@@ -645,9 +649,10 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
     dasicsLibBoundHiList.foreach(reg => reg := 0.U)
     dasicsLibBoundLoList.foreach(reg => reg := 0.U)
-    dasicsLibCfg0 := 0.U
-    dasicsLibCfg1 := 0.U
-
+    dasicsJumpBoundHiList.foreach(reg => reg := 0.U)
+    dasicsJumpBoundLoList.foreach(reg => reg := 0.U)
+    dasicsLibCfgBase := 0.U
+    dasicsJumpCfgBase := 0.U
     dasicsMaincallEntry := 0.U
     dasicsReturnPC := 0.U
     dasicsActiveZoneReturnPC := 0.U
@@ -664,13 +669,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
   val dasicsLibSeq = if (Settings.get("IsRV32"))
                           ((for (i <- 0 until 32 if i % 4 == 0)
-                            yield (dasicsLibCfg0(i + 3, i), dasicsLibBoundHiList(i >> 2), dasicsLibBoundLoList(i >> 2))) ++
-                           (for (i <- 0 until 32 if i % 4 == 0)
-                            yield (dasicsLibCfg1(i + 3, i), dasicsLibBoundHiList((i >> 2) + 8), dasicsLibBoundLoList((i >> 2) + 8))))
-                     else ((for (i <- 0 until 64 if i % 8 == 0)
-                            yield (dasicsLibCfg0(i + 3, i), dasicsLibBoundHiList(i >> 3), dasicsLibBoundLoList(i >> 3))) ++
-                           (for (i <- 0 until 64 if i % 8 == 0)
-                            yield (dasicsLibCfg1(i + 3, i), dasicsLibBoundHiList((i >> 3) + 8), dasicsLibBoundLoList((i >> 3) + 8))))
+                            yield (dasicsLibCfgBase(i + 3, i), dasicsLibBoundHiList(i >> 2), dasicsLibBoundLoList(i >> 2))))
+                     else ((for (i <- 0 until 64 if i % 4 == 0)
+                            yield (dasicsLibCfgBase(i + 3, i), dasicsLibBoundHiList(i >> 2), dasicsLibBoundLoList(i >> 2))))
 
   val isuPermitLibLoad  = dasicsLibSeq.map(cfg => detectInZone(isuAddr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_R))).foldRight(false.B)(_ || _)  // If there exists one pair, that's ok
   val isuPermitLibStore = dasicsLibSeq.map(cfg => detectInZone(isuAddr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_W))).foldRight(false.B)(_ || _)
@@ -693,7 +694,13 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val lsuSLibStoreFault = lsuIsValid && lsuSLibStoreDeny
   val lsuULibStoreFault = lsuIsValid && lsuULibStoreDeny
 
-//   when (io.cfIn.pc === 0x80202f30L.U)
+  val dasicsJumpSeq = if (Settings.get("IsRV32"))
+    ((for (i <- 0 until 32 if i % 16 == 0)
+      yield (dasicsJumpCfgBase(i + 15, i), dasicsJumpBoundHiList(i >> 4), dasicsJumpBoundLoList(i >> 4))))
+  else ((for (i <- 0 until 64 if i % 16 == 0)
+    yield (dasicsJumpCfgBase(i + 15, i), dasicsJumpBoundHiList(i >> 4), dasicsJumpBoundLoList(i >> 4))))
+
+  //   when (io.cfIn.pc === 0x80202f30L.U)
 //   {
 //     printf("[DEBUG] lsuIsValid = %b, lsuIsLoad = %b, lsuAddr = 0x%x, lsuSLibStoreFault = %b\n", lsuIsValid, lsuIsLoad, lsuAddr, lsuSLibStoreFault)
 //     printf("[DEBUG] libSeq0: (%x, 0x%x, 0x%x), libSeq1: (%x, 0x%x, 0x%x), libSeq2: (%x, 0x%x, 0x%x), libSeq3: (%x, 0x%x, 0x%x)\n",
@@ -1236,8 +1243,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     difftest.io.dumcfg := RegNext(dasicsMainCfg & dasicsUMainCfgRMask)
     difftest.io.dumbound0 := RegNext(dasicsUMainBoundLo)
     difftest.io.dumbound1 := RegNext(dasicsUMainBoundHi)
-    difftest.io.dlcfg0 := RegNext(dasicsLibCfg0)
-    difftest.io.dlcfg1 := RegNext(dasicsLibCfg1)
+    difftest.io.dlcfg := RegNext(dasicsLibCfgBase)
     difftest.io.dlbound0 := RegNext(dasicsLibBoundLoList(0))
     difftest.io.dlbound1 := RegNext(dasicsLibBoundHiList(0))
     difftest.io.dlbound2 := RegNext(dasicsLibBoundLoList(1))
@@ -1270,6 +1276,18 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     difftest.io.dlbound29 := RegNext(dasicsLibBoundHiList(14))
     difftest.io.dlbound30 := RegNext(dasicsLibBoundLoList(15))
     difftest.io.dlbound31 := RegNext(dasicsLibBoundHiList(15))
+
+    difftest.io.djcfg := RegNext(dasicsJumpCfgBase)
+    difftest.io.djbound0 := RegNext(dasicsJumpBoundLoList(0))
+    difftest.io.djbound1 := RegNext(dasicsJumpBoundHiList(0))
+    difftest.io.djbound2 := RegNext(dasicsJumpBoundLoList(1))
+    difftest.io.djbound3 := RegNext(dasicsJumpBoundHiList(1))
+    difftest.io.djbound4 := RegNext(dasicsJumpBoundLoList(2))
+    difftest.io.djbound5 := RegNext(dasicsJumpBoundHiList(2))
+    difftest.io.djbound6 := RegNext(dasicsJumpBoundLoList(3))
+    difftest.io.djbound7 := RegNext(dasicsJumpBoundHiList(3))
+
+
     difftest.io.dmaincall := RegNext(dasicsMaincallEntry)
     difftest.io.dretpc := RegNext(dasicsReturnPC)
     difftest.io.dretpcfz := RegNext(dasicsActiveZoneReturnPC)
