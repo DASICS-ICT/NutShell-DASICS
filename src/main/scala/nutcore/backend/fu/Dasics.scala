@@ -27,7 +27,7 @@ object DasicsCheckFault {
   def SWriteDasicsFault = "b010".U
   def SJumpDasicsFault  = "b011".U
 
-  def UReadDascisFault  = "b100".U
+  def UReadDasicsFault  = "b100".U
   def UWriteDasicsFault = "b101".U
   def UJumpDasicsFault  = "b110".U
 
@@ -271,7 +271,7 @@ class DasicsJumpCheckerIO extends NutCoreBundle with HasDasicsConst{
   }
 }
 
-class MemDasics extends NutCoreModule with DasicsMethod with HasCSRConst {
+class MemDasics(implicit val p: NutCoreConfig) extends NutCoreModule with DasicsMethod with HasCSRConst {
   val io: DasicsMemIO = IO(new DasicsMemIO())
   val w = io.distribute_csr.w
   private val dasics = Wire(Vec(NumDasicsMemBounds, new DasicsEntry))
@@ -284,7 +284,7 @@ class MemDasics extends NutCoreModule with DasicsMethod with HasCSRConst {
   io.entries := dasics
 }
 
-class JumpDasics extends NutCoreModule
+class JumpDasics(implicit val p: NutCoreConfig) extends NutCoreModule
   with DasicsMethod
   with DasicsCheckerMethod
   with HasCSRConst
@@ -330,7 +330,7 @@ class JumpDasics extends NutCoreModule
   private val boundLo = Mux(mode === ModeU, uMainBoundLo, sMainBoundLo)
   private val boundHi = Mux(mode === ModeU, uMainBoundHi, sMainBoundHi)
 
-  val isDasicsRet   = false.B   //TODO: add dasicst return instruction
+  val isDasicsRet   = false.B   //TODO: add dasics return instruction
   val isTrustedZone = io.control_flow.under_check.valid && io.control_flow.under_check.bits.pc_in_trust_zone
   val targetInTrustedZone = io.control_flow.under_check.valid && (mode === ModeU && mainCfg.uEnable || mode === ModeS && mainCfg.sEnable) &&
     dasics_jump_in_bound(addr = target(VAddrBits -1, 0), boundHi = boundHi(VAddrBits -1, 0), boundLo = boundLo(VAddrBits -1, 0))
@@ -379,7 +379,7 @@ trait DasicsCheckerMethod extends HasDasicsConst{
 }
 
 
-class DasicsMemChecker extends NutCoreModule
+class DasicsMemChecker(implicit val p: NutCoreConfig) extends NutCoreModule
   with DasicsCheckerMethod
   with HasDasicsConst
   with HasCSRConst
@@ -400,7 +400,7 @@ class DasicsMemChecker extends NutCoreModule
     }
   }.elsewhen(io.mode === ModeU){
     when(DasicsOp.isRead(req.bits.operation) && dasics_mem_fault){
-      io.resp.dasics_fault := DasicsCheckFault.UReadDascisFault
+      io.resp.dasics_fault := DasicsCheckFault.UReadDasicsFault
     }.elsewhen(DasicsOp.isWrite(req.bits.operation) && dasics_mem_fault){
       io.resp.dasics_fault := DasicsCheckFault.UWriteDasicsFault
     }
@@ -408,7 +408,7 @@ class DasicsMemChecker extends NutCoreModule
 
 }
 
-class DasicsJumpChecker extends NutCoreModule
+class DasicsJumpChecker(implicit val p: NutCoreConfig) extends NutCoreModule
   with DasicsCheckerMethod
   with HasDasicsConst
   with HasCSRConst
@@ -448,7 +448,7 @@ class DasicsBranchIO extends NutCoreBundle with HasDasicsConst {
   val resp = new DasicsRespBundle()
 }
 
-class DasicsBranchChecker extends NutCoreModule
+class DasicsBranchChecker(implicit val p: NutCoreConfig) extends NutCoreModule
   with DasicsMethod with DasicsCheckerMethod with HasCSRConst {
   val io: DasicsBranchIO = IO(new DasicsBranchIO())
   val w = io.distribute_csr.w
@@ -571,7 +571,7 @@ class DasicsTaggerIO extends NutCoreBundle {
 }
 
 // Tag every instruction as trusted/untrusted in frontend
-class DasicsTagger extends NutCoreModule with HasCSRConst {
+class DasicsTagger(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst {
   val io: DasicsTaggerIO = IO(new DasicsTaggerIO())
 
   private val mainCfgReg = RegInit(UInt(XLEN.W), 0.U)

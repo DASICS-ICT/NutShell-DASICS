@@ -22,6 +22,7 @@ import chisel3.util.experimental.BoringUtils
 import utils._
 import bus.simplebus._
 import chisel3.experimental.IO
+import nutcore.backend.fu.{DasicsTagger, DasicsBranchChecker}
 
 class FrontendIO(implicit val p: NutCoreConfig) extends Bundle with HasNutCoreConst {
   val imem = new SimpleBusUC(userBits = ICacheUserBundleWidth, addrBits = VAddrBits)
@@ -115,6 +116,22 @@ class Frontend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with
   io.bpFlush <> ifu.io.bpFlush
   io.ipf <> ifu.io.ipf
   io.imem <> ifu.io.imem
+
+  // dasicsTagger
+  val dasicsTagger: DasicsTagger = Module(new DasicsTagger())
+  dasicsTagger.io.distribute_csr := csrCtrl.distribute_csr
+  dasicsTagger.io.privMode := tlbCsr.priv.imode
+  dasicsTagger.io.addr := ifu.io.dasics.startAddr
+  ifu.io.dasics.notTrusted := dasicsTagger.io.notTrusted
+
+  // dasics branch checker
+  val dasicsBrChecker: DasicsBranchChecker = Module(new DasicsBranchChecker())
+  dasicsBrChecker.io.distribute_csr := csrCtrl.distribute_csr
+  dasicsBrChecker.io.mode := tlbCsr.priv.imode
+  dasicsBrChecker.io.valid := ifu.io.dasics.lastBranch.valid
+  dasicsBrChecker.io.lastBranch := ifu.io.dasics.lastBranch.bits
+  dasicsBrChecker.io.target := ifu.io.dasics.startAddr
+  ifu.io.dasics.brResp := dasicsBrChecker.io.resp.dasics_fault
 
   Debug("------------------------ FRONTEND:------------------------\n")
   Debug("flush = %b, ifu:(%d,%d), idu:(%d,%d)\n",
