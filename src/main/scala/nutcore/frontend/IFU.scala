@@ -317,7 +317,6 @@ class IFU_inorder extends NutCoreModule with HasResetVector {
     val bpFlush = Output(Bool())
     val ipf = Input(Bool())
 
-    val dasics = new IFUDasicsIO
   })
 
   // pc
