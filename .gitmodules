@@ -1,4 +1,5 @@
 [submodule "difftest"]
 	path = difftest
 	url = https://github.com/DASICS-ICT/difftest.git
-	branch = xs-dasics-v1.0-release
+	branch = dev-nemu-difftest
+
