@@ -117,22 +117,6 @@ class Frontend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with
   io.ipf <> ifu.io.ipf
   io.imem <> ifu.io.imem
 
-  // dasicsTagger
-  val dasicsTagger: DasicsTagger = Module(new DasicsTagger())
-  dasicsTagger.io.distribute_csr := csrCtrl.distribute_csr
-  dasicsTagger.io.privMode := tlbCsr.priv.imode
-  dasicsTagger.io.addr := ifu.io.dasics.startAddr
-  ifu.io.dasics.notTrusted := dasicsTagger.io.notTrusted
-
-  // dasics branch checker
-  val dasicsBrChecker: DasicsBranchChecker = Module(new DasicsBranchChecker())
-  dasicsBrChecker.io.distribute_csr := csrCtrl.distribute_csr
-  dasicsBrChecker.io.mode := tlbCsr.priv.imode
-  dasicsBrChecker.io.valid := ifu.io.dasics.lastBranch.valid
-  dasicsBrChecker.io.lastBranch := ifu.io.dasics.lastBranch.bits
-  dasicsBrChecker.io.target := ifu.io.dasics.startAddr
-  ifu.io.dasics.brResp := dasicsBrChecker.io.resp.dasics_fault
-
   Debug("------------------------ FRONTEND:------------------------\n")
   Debug("flush = %b, ifu:(%d,%d), idu:(%d,%d)\n",
     ifu.io.flushVec.asUInt, ifu.io.out.valid, ifu.io.out.ready, idu.io.in(0).valid, idu.io.in(0).ready)
