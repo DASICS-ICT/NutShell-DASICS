@@ -23,7 +23,7 @@ import utils._
 import bus.simplebus._
 import top.Settings
 
-class UnpipeLSUIO extends FunctionUnitIO {
+class LSExecUnitIO extends FunctionUnitIO {
   val srcSum = Input(UInt(XLEN.W))  // src1 + src2 calculated in ISU
   val wdata = Input(UInt(XLEN.W))
   val instr = Input(UInt(32.W)) // Atom insts need aq rl funct3 bit from instr
@@ -32,7 +32,13 @@ class UnpipeLSUIO extends FunctionUnitIO {
   val dtlbPF = Output(Bool()) // TODO: refactor it for new backend
   val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
   val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
-  val dasicsDeny: Bool = Output(Bool())
+}
+
+class UnpipeLSUIO extends LSExecUnitIO {
+  // used by dasics checker
+  val dasics_lsu_valid           = Output(Bool()) //"lsu_is_valid"
+  val dasics_lsu_addr            = Output(UInt(XLEN.W)) // "lsu_addr"
+  val dasics_lsu_deny            = Input(Bool())
 }
 
 class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
@@ -107,11 +113,10 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
     val addr = if(IndependentAddrCalcState){RegNext(src1 + src2, state === s_idle)}else{DontCare}
 
     // DASICS Protection Logics from CSR
-    val cannotAccessMemory = WireInit(false.B)
-    BoringUtils.addSink(cannotAccessMemory, "cannot_access_memory")
-    BoringUtils.addSource(valid && !scInvalid, "lsu_is_valid")
+    val cannotAccessMemory = io.dasics_lsu_deny
+    io.dasics_lsu_valid := valid && !scInvalid
     // Do not rely on valid in lsu_addr
-    BoringUtils.addSource(Mux(LSUOpType.isLoad(func) || LSUOpType.isStore(func), io.srcSum, src1), "lsu_addr")
+    io.dasics_lsu_addr := Mux(LSUOpType.isLoad(func) || LSUOpType.isStore(func), io.srcSum, src1)
 
     // StoreQueue
     // TODO: inst fence needs storeQueue to be finished
@@ -294,11 +299,10 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
 
     io.loadAddrMisaligned := lsExecUnit.io.loadAddrMisaligned
     io.storeAddrMisaligned := lsExecUnit.io.storeAddrMisaligned
-  io.dasicsDeny := cannotAccessMemory
 }
 
 class LSExecUnit extends NutCoreModule {
-  val io = IO(new UnpipeLSUIO)
+  val io = IO(new LSExecUnitIO)
 
   val (valid, addr, func) = (io.in.valid, io.in.bits.src1, io.in.bits.func) // src1 is used as address
   def access(valid: Bool, addr: UInt, func: UInt): UInt = {
@@ -439,7 +443,6 @@ class LSExecUnit extends NutCoreModule {
 
   io.loadAddrMisaligned :=  valid && !isStore && !isAMO && !addrAligned
   io.storeAddrMisaligned := valid && (isStore || isAMO) && !addrAligned
-  io.dasicsDeny := DontCare
 
   Debug(io.loadAddrMisaligned || io.storeAddrMisaligned, "misaligned addr detected\n")
 

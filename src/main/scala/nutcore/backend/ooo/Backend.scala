@@ -689,6 +689,8 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   isu.io.flush := io.flush(0)
   exu.io.flush := io.flush(1)
 
+  isu.io.dasics_isu_csr <> exu.io.dasics_isu_csr
+
   isu.io.wb <> wbu.io.wb
   io.redirect <> wbu.io.redirect
   // forward
@@ -698,3 +700,4 @@ class Backend_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   io.memMMU.dmem <> exu.io.memMMU.dmem
   io.dmem <> exu.io.dmem
 }
+

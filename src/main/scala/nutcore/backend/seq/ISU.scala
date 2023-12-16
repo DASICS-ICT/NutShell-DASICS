@@ -31,6 +31,7 @@ class ISU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
     val wb = Flipped(new WriteBackIO)
     val forward = Flipped(new ForwardIO)
     val flush = Input(Bool())
+    val dasics_isu_csr = new DasicsIsuCsrIO
   })
 
   io.out.bits := DontCare
@@ -79,17 +80,13 @@ class ISU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
   val (src1, addr) = (io.out.bits.data.src1, io.out.bits.data.addr)
   val lsuFunc = io.in(0).bits.ctrl.fuOpType
   val isuAddr = Mux(LSUOpType.isLoad(lsuFunc) || LSUOpType.isStore(lsuFunc), addr, src1)
-  BoringUtils.addSource(isuAddr, name = "isu_addr")
-  BoringUtils.addSource(io.in(0).bits.cf.pc, name = "isu_pc")
+
+
 
   io.out.bits.cf <> io.in(0).bits.cf
   io.out.bits.ctrl := io.in(0).bits.ctrl
   io.out.bits.ctrl.isSrc1Forward := src1ForwardNextCycle
   io.out.bits.ctrl.isSrc2Forward := src2ForwardNextCycle
-  BoringUtils.addSink(io.out.bits.ctrl.inSTrustedZone, name = "isu_in_s_trusted_zone")
-  BoringUtils.addSink(io.out.bits.ctrl.inUTrustedZone, name = "isu_in_u_trusted_zone")
-  BoringUtils.addSink(io.out.bits.ctrl.permitLibLoad, name = "isu_perm_lib_ld")
-  BoringUtils.addSink(io.out.bits.ctrl.permitLibStore, name = "isu_perm_lib_st")
   io.out.bits.ctrl.lsuIsLoad := LSUOpType.isLoad(lsuFunc) || LSUOpType.isLR(lsuFunc)
 
   // retire: write rf
@@ -117,4 +114,14 @@ class ISU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
     difftest.io.coreid := 0.U // TODO
     difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf.read(i.U)))
   }
+
+  //dasics_isu_checker
+  val dasics_isu_checker = Module(new DasicsIsuChecker)
+  dasics_isu_checker.io.csr := io.dasics_isu_csr
+  dasics_isu_checker.io.isu.addr := isuAddr
+  dasics_isu_checker.io.isu.pc := io.in(0).bits.cf.pc
+  io.out.bits.ctrl.inSTrustedZone := dasics_isu_checker.io.isu.InSTrustedZone
+  io.out.bits.ctrl.inUTrustedZone := dasics_isu_checker.io.isu.InUTrustedZone
+  io.out.bits.ctrl.permitLibLoad := dasics_isu_checker.io.isu.PermitLibLoad
+  io.out.bits.ctrl.permitLibStore := dasics_isu_checker.io.isu.PermitLibStore
 }

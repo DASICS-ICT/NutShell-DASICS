@@ -75,6 +75,7 @@ class ALUIO extends FunctionUnitIO {
   val cfIn = Flipped(new CtrlFlowIO)
   val redirect = new RedirectIO
   val offset = Input(UInt(XLEN.W))
+  val dasics_alu = Flipped(new DasicsAluIO)
 }
 
 class ALU(hasBru: Boolean = false) extends NutCoreModule {
@@ -137,10 +138,10 @@ class ALU(hasBru: Boolean = false) extends NutCoreModule {
   io.out.bits := Mux(isBru, Mux(!isRVC, SignExt(io.cfIn.pc, AddrBits) + 4.U, SignExt(io.cfIn.pc, AddrBits) + 2.U), aluRes)
 
   // Send redirect information to CSR module to judge whether to trigger DasicsInstrAccessFault or not
-  BoringUtils.addSource(io.redirect.valid, "redirect_valid")
-  BoringUtils.addSource(io.redirect.target, "redirect_target")
-  BoringUtils.addSource(valid && func === ALUOpType.pulpret, "is_pulpret")
-  BoringUtils.addSource(valid && (func === ALUOpType.dasicscall_j || func === ALUOpType.dasicscall_jr), "is_dasicscall")
+  io.dasics_alu.RedirectValid := io.redirect.valid
+  io.dasics_alu.RedirectTarget := io.redirect.target
+  io.dasics_alu.IsPulpret := (valid && func === ALUOpType.pulpret)
+  io.dasics_alu.IsDasicscall := (valid && (func === ALUOpType.dasicscall_j || func === ALUOpType.dasicscall_jr))
 
   Debug(valid && isBru, "tgt %x, valid:%d, npc: %x, pdwrong: %x\n", io.redirect.target, io.redirect.valid, io.cfIn.pnpc, predictWrong)
   Debug(valid && isBru, "taken:%d addrRes:%x src1:%x src2:%x func:%x\n", taken, adderRes, src1, src2, func)

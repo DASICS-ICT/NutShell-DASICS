@@ -33,6 +33,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     val dmem = new SimpleBusUC(addrBits = VAddrBits)
     val forward = new ForwardIO
     val memMMU = Flipped(new MemMMUIO)
+    val dasics_isu_csr = Flipped(new DasicsIsuCsrIO)
   })
 
   val src1 = io.in.bits.data.src1(XLEN-1,0)
@@ -73,11 +74,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   csr.io.cfIn.exceptionVec(storeAddrMisaligned) := lsu.io.storeAddrMisaligned
   csr.io.instrValid := io.in.valid && !io.flush
   csr.io.isBackendException := false.B
-  csr.io.lsuIsLoad := io.in.bits.ctrl.lsuIsLoad
-  csr.io.lsuInSTrustedZone := io.in.bits.ctrl.inSTrustedZone
-  csr.io.lsuInUTrustedZone := io.in.bits.ctrl.inUTrustedZone
-  csr.io.lsuPermitLibLoad := io.in.bits.ctrl.permitLibLoad
-  csr.io.lsuPermitLibStore := io.in.bits.ctrl.permitLibStore
+
   io.out.bits.intrNO := csr.io.intrNO
   csr.io.isBackendException := false.B
   csr.io.out.ready := true.B
@@ -95,7 +92,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   (io.out.bits.decode.ctrl, io.in.bits.ctrl) match { case (o, i) =>
     o.rfWen :=
       i.rfWen && (
-        !lsuTlbPF && !lsu.io.loadAddrMisaligned && !lsu.io.storeAddrMisaligned && !lsu.io.dasicsDeny ||
+        !lsuTlbPF && !lsu.io.loadAddrMisaligned && !lsu.io.storeAddrMisaligned && !lsu.io.dasics_lsu_deny ||
           !fuValids(FuType.lsu)
       ) && !(csr.io.wenFix && fuValids(FuType.csr))
     o.rfDest := i.rfDest
@@ -157,4 +154,31 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     difftest.io.cycleCnt := cycleCnt
     difftest.io.instrCnt := instrCnt
   }
+
+  //dasics_checker
+  val dasics_checker = Module(new DasicsMemChecker)
+  //alu
+  dasics_checker.io.alu <> alu.io.dasics_alu
+  //lsu
+  dasics_checker.io.lsu.valid := lsu.io.dasics_lsu_valid
+  dasics_checker.io.lsu.addr := lsu.io.dasics_lsu_addr
+  dasics_checker.io.lsu.IsLoad := io.in.bits.ctrl.lsuIsLoad
+  dasics_checker.io.lsu.InSTrustedZone := io.in.bits.ctrl.inSTrustedZone
+  dasics_checker.io.lsu.InUTrustedZone := io.in.bits.ctrl.inUTrustedZone
+  dasics_checker.io.lsu.PermitLibLoad := io.in.bits.ctrl.permitLibLoad
+  dasics_checker.io.lsu.PermitLibStore := io.in.bits.ctrl.permitLibStore
+  lsu.io.dasics_lsu_deny := dasics_checker.io.lsu.Deny
+  //csr
+  dasics_checker.io.csr <> csr.io.dasics_csr
+  //others
+  csr.io.dasics_alu <> alu.io.dasics_alu
+  //for DasicsIsuChecker
+  io.dasics_isu_csr.MainCfg := csr.io.dasics_csr.MainCfg
+  io.dasics_isu_csr.SMainBoundHi := csr.io.dasics_csr.SMainBoundHi
+  io.dasics_isu_csr.SMainBoundLo := csr.io.dasics_csr.SMainBoundLo
+  io.dasics_isu_csr.UMainBoundHi := csr.io.dasics_csr.UMainBoundHi
+  io.dasics_isu_csr.UMainBoundLo := csr.io.dasics_csr.UMainBoundLo
+  io.dasics_isu_csr.LibCfgBase := csr.io.dasics_csr.LibCfgBase
+  io.dasics_isu_csr.LibBoundHiList := csr.io.dasics_csr.LibBoundHiList
+  io.dasics_isu_csr.LibBoundLoList := csr.io.dasics_csr.LibBoundLoList
 }
