@@ -67,18 +67,15 @@ class DasicsMemCsrIO extends DasicsIsuCsrIO{
   val lsuULibStoreFault = Output(Bool())
 }
 
-
-class DasicsCheckerIO extends NutCoreBundle{
+class DasicsIsuCheckerIO extends NutCoreBundle{
+  val isu = new DasicsIsuIO
   val csr = new DasicsIsuCsrIO
 }
-class DasicsIsuCheckerIO extends DasicsCheckerIO{
-  val isu = new DasicsIsuIO
-}
 
-class DasicsExuCheckerIO extends DasicsCheckerIO{
+class DasicsExuCheckerIO extends NutCoreBundle{
   val alu = new DasicsAluIO
   val lsu = new DasicsLsuIO
-  override val csr = new DasicsMemCsrIO
+  val csr = new DasicsIsuCsrIO
 }
 
 class DasicsIsuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
