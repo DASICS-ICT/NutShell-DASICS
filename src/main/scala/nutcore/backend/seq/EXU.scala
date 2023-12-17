@@ -156,7 +156,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
 
   //dasics_checker
-  val dasics_checker = Module(new DasicsMemChecker)
+  val dasics_checker = Module(new DasicsExuChecker)
   //alu
   dasics_checker.io.alu <> alu.io.dasics_alu
   //lsu

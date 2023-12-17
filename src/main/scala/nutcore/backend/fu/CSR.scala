@@ -437,10 +437,10 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsLibBoundHiMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 + 0x1, dasicsLibBoundHiList(i)) }
   val dasicsLibBoundLoMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 , dasicsLibBoundLoList(i)) }
 
-//  val dasicsJumpBoundHiList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
-//  val dasicsJumpBoundLoList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
-//  val dasicsJumpBoundHiMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 + 0x1, dasicsJumpBoundHiList(i)) }
-//  val dasicsJumpBoundLoMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 , dasicsJumpBoundLoList(i)) }
+ val dasicsJumpBoundHiList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
+ val dasicsJumpBoundLoList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
+ val dasicsJumpBoundHiMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 + 0x1, dasicsJumpBoundHiList(i)) }
+ val dasicsJumpBoundLoMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 , dasicsJumpBoundLoList(i)) }
 
   val dasicsLibCfgBase  = RegInit(UInt(XLEN.W), 0.U)
   val dasicsJumpCfgBase  = RegInit(UInt(XLEN.W), 0.U)
@@ -455,7 +455,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(DasicsMaincallEntry, dasicsMaincallEntry),
     MaskedRegMap(DasicsReturnPC, dasicsReturnPC),
     MaskedRegMap(DasicsActiveZoneReturnPC, dasicsActiveZoneReturnPC)
-  ) ++ dasicsLibBoundLoMapping ++ dasicsLibBoundHiMapping /*++ dasicsJumpBoundLoMapping ++ dasicsJumpBoundHiMapping*/
+  ) ++ dasicsLibBoundLoMapping ++ dasicsLibBoundHiMapping ++ dasicsJumpBoundLoMapping ++ dasicsJumpBoundHiMapping
 
   val dasicsMapping = dasicsMachineMapping ++ dasicsSupervisorMapping ++ dasicsUserMapping
 
@@ -622,8 +622,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
     dasicsLibBoundHiList.foreach(reg => reg := 0.U)
     dasicsLibBoundLoList.foreach(reg => reg := 0.U)
-//    dasicsJumpBoundHiList.foreach(reg => reg := 0.U)
-//    dasicsJumpBoundLoList.foreach(reg => reg := 0.U)
+   dasicsJumpBoundHiList.foreach(reg => reg := 0.U)
+   dasicsJumpBoundLoList.foreach(reg => reg := 0.U)
     dasicsLibCfgBase := 0.U
     dasicsJumpCfgBase := 0.U
     dasicsMaincallEntry := 0.U

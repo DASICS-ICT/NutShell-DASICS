@@ -75,7 +75,7 @@ class DasicsIsuCheckerIO extends DasicsCheckerIO{
   val isu = new DasicsIsuIO
 }
 
-class DasicsMemCheckerIO extends DasicsCheckerIO{
+class DasicsExuCheckerIO extends DasicsCheckerIO{
   val alu = new DasicsAluIO
   val lsu = new DasicsLsuIO
   override val csr = new DasicsMemCsrIO
@@ -105,9 +105,9 @@ class DasicsIsuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with
   io.isu.PermitLibStore   := isuPermitLibStore // "isu_perm_lib_st"
 }
 
-class DasicsMemChecker(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
+class DasicsExuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
-  val io = IO(new DasicsMemCheckerIO)
+  val io = IO(new DasicsExuCheckerIO)
   // DASICS Main/Lib wen check
   // Note: when DASICS is enabled, lib functions cannot access CSRs
   def detectInZone(addr: UInt, hi: UInt, lo: UInt, en: Bool) : Bool = en && addr >= lo && addr <= hi
