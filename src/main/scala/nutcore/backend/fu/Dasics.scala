@@ -15,7 +15,6 @@ class DasicsIsuIO extends NutCoreBundle {
 class DasicsAluIO extends NutCoreBundle{
   val RedirectValid   = Input(Bool())
   val RedirectTarget  = Input(UInt(XLEN.W))
-  val IsPulpret       = Input(Bool())
   val IsDasicscall    = Input(Bool())
 }
 
@@ -39,13 +38,12 @@ class DasicsIsuCsrIO extends NutCoreBundle with HasDasicsConst{
   val UMainBoundLo  = Input(UInt(XLEN.W))
 
   val LibCfgBase    = Input(UInt(XLEN.W))
-//  val JumpCfgBase   = Input(UInt(XLEN.W))
 
   val LibBoundHiList = Input(Vec(NumDasicsMemBounds,UInt(XLEN.W)))
   val LibBoundLoList = Input(Vec(NumDasicsMemBounds, UInt(XLEN.W)))
 }
 
-class DasicsMemCsrIO extends DasicsIsuCsrIO{
+class DasicsExuCsrIO extends DasicsIsuCsrIO{
   val pc    = Input(UInt(VAddrBits.W))
   val pmode = Input(UInt(2.W))
 
@@ -54,9 +52,9 @@ class DasicsMemCsrIO extends DasicsIsuCsrIO{
   val MaincallEntry = Input(UInt(XLEN.W))
 
   val inTrustedZone = Output(Bool())
-  val inLibFreeZone = Output(Bool())
+  val inJumpZone = Output(Bool())
   val targetInTrustedZone = Output(Bool())
-  val targetInLibFreeZone = Output(Bool())
+  val targetInJumpZone = Output(Bool())
   val aluSLibInstrFault  = Output(Bool())
   val aluULibInstrFault  = Output(Bool())
 
@@ -65,6 +63,10 @@ class DasicsMemCsrIO extends DasicsIsuCsrIO{
   val lsuSLibStoreFault = Output(Bool())
   val lsuULibLoadFault = Output(Bool())
   val lsuULibStoreFault = Output(Bool())
+
+  val JumpCfgBase   = Input(UInt(XLEN.W))
+  val JumpBoundHiList = Input(Vec(NumDasicsJumpBounds,UInt(XLEN.W)))
+  val JumpBoundLoList = Input(Vec(NumDasicsJumpBounds, UInt(XLEN.W)))
 }
 
 class DasicsIsuCheckerIO extends NutCoreBundle{
@@ -75,7 +77,7 @@ class DasicsIsuCheckerIO extends NutCoreBundle{
 class DasicsExuCheckerIO extends NutCoreBundle{
   val alu = new DasicsAluIO
   val lsu = new DasicsLsuIO
-  val csr = new DasicsIsuCsrIO
+  val csr = new DasicsExuCsrIO
 }
 
 class DasicsIsuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
@@ -83,8 +85,6 @@ class DasicsIsuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with
   def detectInZone(addr: UInt, hi: UInt, lo: UInt, en: Bool) : Bool = en && addr >= lo && addr <= hi
   val isSMainEnable = detectInZone(io.csr.SMainBoundLo, io.csr.SMainBoundHi, 0.U(XLEN.W), io.csr.MainCfg(MCFG_SENA))
   val isUMainEnable = detectInZone(io.csr.UMainBoundLo, io.csr.UMainBoundHi, 0.U(XLEN.W), io.csr.MainCfg(MCFG_UENA))
-  // DASICS Load/Store checks are performed in ISU stage for timing considerations
-  // Note: Privilege level cannot be known until EXU stage; however, we can consider DASICS CSRs as static
   val isuInSTrustedZone = detectInZone(io.isu.pc, io.csr.SMainBoundHi, io.csr.SMainBoundLo, isSMainEnable) || !isSMainEnable
   val isuInUTrustedZone = detectInZone(io.isu.pc, io.csr.UMainBoundHi, io.csr.UMainBoundLo, isUMainEnable) || !isUMainEnable
   // DASICS Load/Store checks are performed in ISU stage for timing considerations
@@ -139,11 +139,7 @@ class DasicsExuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with
   val lsuSLibStoreFault = lsuIsValid && lsuSLibStoreDeny
   val lsuULibStoreFault = lsuIsValid && lsuULibStoreDeny
 
-  //  val dasicsJumpSeq = if (Settings.get("IsRV32"))
-  //    ((for (i <- 0 until 32 if i % 16 == 0)
-  //      yield (dasicsJumpCfgBase(i + 15, i), dasicsJumpBoundHiList(i >> 4), dasicsJumpBoundLoList(i >> 4))))
-  //  else ((for (i <- 0 until 64 if i % 16 == 0)
-  //    yield (dasicsJumpCfgBase(i + 15, i), dasicsJumpBoundHiList(i >> 4), dasicsJumpBoundLoList(i >> 4))))
+
 
   //   when (io.cfIn.pc === 0x80202f30L.U)
   //   {
@@ -170,18 +166,25 @@ class DasicsExuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with
   //           dasicsLibSeq(15)._1, dasicsLibSeq(15)._2, dasicsLibSeq(15)._3)
   //   }
   // DASICS -- Check ALU DASICS exception
-  val dasicsLibSeq = if (Settings.get("IsRV32"))
-    ((for (i <- 0 until 32 if i % 4 == 0)
-      yield (io.csr.LibCfgBase(i + 3, i), io.csr.LibBoundHiList(i >> 2), io.csr.LibBoundLoList(i >> 2))))
-  else ((for (i <- 0 until 64 if i % 4 == 0)
-    yield (io.csr.LibCfgBase(i + 3, i), io.csr.LibBoundHiList(i >> 2), io.csr.LibBoundLoList(i >> 2))))
-  def detectInLibFreeZone(addr: UInt, trustedZone: Bool) : Bool = !trustedZone && dasicsLibSeq.map(cfg => detectInZone(addr, cfg._2, cfg._3, cfg._1(LIBCFG_V) && cfg._1(LIBCFG_X))).foldRight(false.B)(_ || _)
-  val inLibFreeZone = detectInLibFreeZone(io.csr.pc, inTrustedZone)
+//  val dasicsLibSeq = if (Settings.get("IsRV32"))
+//    ((for (i <- 0 until 32 if i % 4 == 0)
+//      yield (io.csr.LibCfgBase(i + 3, i), io.csr.LibBoundHiList(i >> 2), io.csr.LibBoundLoList(i >> 2))))
+//  else ((for (i <- 0 until 64 if i % 4 == 0)
+//    yield (io.csr.LibCfgBase(i + 3, i), io.csr.LibBoundHiList(i >> 2), io.csr.LibBoundLoList(i >> 2))))
+
+   val dasicsJumpSeq = if (Settings.get("IsRV32"))
+     ((for (i <- 0 until 32 if i % 16 == 0)
+       yield (io.csr.JumpCfgBase(i + 15, i), io.csr.JumpBoundHiList(i >> 4), io.csr.JumpBoundLoList(i >> 4))))
+   else ((for (i <- 0 until 64 if i % 16 == 0)
+     yield (io.csr.JumpCfgBase(i + 15, i), io.csr.JumpBoundHiList(i >> 4), io.csr.JumpBoundLoList(i >> 4))))
+
+  def detectInJumpZone(addr: UInt, trustedZone: Bool) : Bool = !trustedZone && dasicsJumpSeq.map(cfg => detectInZone(addr, cfg._2, cfg._3, cfg._1(JUMPCFG_V))).foldRight(false.B)(_ || _)
+  val inJumpZone = detectInJumpZone(io.csr.pc, inTrustedZone)
   val targetInTrustedZone = detectInTrustedZone(io.alu.RedirectTarget)
-  val targetInLibFreeZone = detectInLibFreeZone(io.alu.RedirectTarget, targetInTrustedZone)
+  val targetInJumpZone = detectInJumpZone(io.alu.RedirectTarget, targetInTrustedZone)
 
   val aluPermitRedirect = inTrustedZone || (!inTrustedZone &&  targetInTrustedZone && (io.alu.RedirectTarget === io.csr.ReturnPC || io.alu.RedirectTarget === io.csr.MaincallEntry)) ||
-    targetInLibFreeZone || ( inLibFreeZone && !targetInTrustedZone && !targetInLibFreeZone && io.alu.RedirectTarget === io.csr.ActiveZoneReturnPC)
+    targetInJumpZone || ( inJumpZone && !targetInTrustedZone && !targetInJumpZone && io.alu.RedirectTarget === io.csr.ActiveZoneReturnPC)
 
   val aluSLibInstrFault = isSMainEnable && io.csr.pmode === ModeS && io.alu.RedirectValid && !aluPermitRedirect
   val aluULibInstrFault = isUMainEnable && io.csr.pmode === ModeU && io.alu.RedirectValid && !aluPermitRedirect
@@ -197,9 +200,9 @@ class DasicsExuChecker(implicit val p: NutCoreConfig) extends NutCoreModule with
 
   //output
   io.csr.inTrustedZone := inTrustedZone
-  io.csr.inLibFreeZone := inLibFreeZone
+  io.csr.inJumpZone := inJumpZone
   io.csr.targetInTrustedZone := targetInTrustedZone
-  io.csr.targetInLibFreeZone := targetInLibFreeZone
+  io.csr.targetInJumpZone := targetInJumpZone
   io.csr.aluSLibInstrFault  := aluSLibInstrFault
   io.csr.aluULibInstrFault  := aluULibInstrFault
   io.csr.lsuAddr := io.lsu.addr

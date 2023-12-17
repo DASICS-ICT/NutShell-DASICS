@@ -58,7 +58,7 @@ object ALUOpType {
   def ret  = "b1011110".U
 
   // for dasics protection
-  def pulpret = "b1111110".U  // Use func5 to make difference
+  // def pulpret = "b1111110".U  // Use func5 to make difference
   def dasicscall_j = "b1111000".U
   def dasicscall_jr ="b1111010".U
 
@@ -81,7 +81,10 @@ class ALUIO extends FunctionUnitIO {
 class ALU(hasBru: Boolean = false) extends NutCoreModule {
   val io = IO(new ALUIO)
 
-  val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
+  val (valid, src1, src2, func) = (io.in.valid, 
+                                   io.in.bits.src1, 
+                                   io.in.bits.src2, 
+                                   io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt): UInt = {
     this.valid := valid
     this.src1 := src1
@@ -140,7 +143,7 @@ class ALU(hasBru: Boolean = false) extends NutCoreModule {
   // Send redirect information to CSR module to judge whether to trigger DasicsInstrAccessFault or not
   io.dasics_alu.RedirectValid := io.redirect.valid
   io.dasics_alu.RedirectTarget := io.redirect.target
-  io.dasics_alu.IsPulpret := (valid && func === ALUOpType.pulpret)
+  // io.dasics_alu.IsPulpret := (valid && func === ALUOpType.pulpret)
   io.dasics_alu.IsDasicscall := (valid && (func === ALUOpType.dasicscall_j || func === ALUOpType.dasicscall_jr))
 
   Debug(valid && isBru, "tgt %x, valid:%d, npc: %x, pdwrong: %x\n", io.redirect.target, io.redirect.valid, io.cfIn.pnpc, predictWrong)

@@ -228,7 +228,7 @@ class CSRIO extends FunctionUnitIO {
   val dmemMMU = Flipped(new MMUIO)
   val wenFix = Output(Bool())
 
-  val dasics_csr = Flipped(new DasicsMemCsrIO)
+  val dasics_csr = Flipped(new DasicsExuCsrIO)
   val dasics_alu = new DasicsAluIO
 }
 
@@ -432,15 +432,17 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val utval = RegInit(UInt(XLEN.W), 0.U)
 
   // User-Level DASICS CSRs
+  val dasicsBoundWMask = (~(7.U(64.W))).asUInt //TODO
+
   val dasicsLibBoundHiList = List.fill(NumDasicsMemBounds)(RegInit(UInt(XLEN.W), 0.U))
   val dasicsLibBoundLoList = List.fill(NumDasicsMemBounds)(RegInit(UInt(XLEN.W), 0.U))
-  val dasicsLibBoundHiMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 + 0x1, dasicsLibBoundHiList(i)) }
-  val dasicsLibBoundLoMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 , dasicsLibBoundLoList(i)) }
+  val dasicsLibBoundHiMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 + 0x1, dasicsLibBoundHiList(i),dasicsBoundWMask) }
+  val dasicsLibBoundLoMapping = (0 until NumDasicsMemBounds).map { case i => MaskedRegMap(DasicsLibBoundBase + i * 2 , dasicsLibBoundLoList(i),dasicsBoundWMask) }
 
  val dasicsJumpBoundHiList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
  val dasicsJumpBoundLoList = List.fill(NumDasicsJumpBounds)(RegInit(UInt(XLEN.W), 0.U))
- val dasicsJumpBoundHiMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 + 0x1, dasicsJumpBoundHiList(i)) }
- val dasicsJumpBoundLoMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 , dasicsJumpBoundLoList(i)) }
+ val dasicsJumpBoundHiMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 + 0x1, dasicsJumpBoundHiList(i),dasicsBoundWMask) }
+ val dasicsJumpBoundLoMapping = (0 until NumDasicsJumpBounds).map { case i => MaskedRegMap(DasicsJumpBoundBase + i * 2 , dasicsJumpBoundLoList(i),dasicsBoundWMask) }
 
   val dasicsLibCfgBase  = RegInit(UInt(XLEN.W), 0.U)
   val dasicsJumpCfgBase  = RegInit(UInt(XLEN.W), 0.U)
@@ -622,8 +624,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
     dasicsLibBoundHiList.foreach(reg => reg := 0.U)
     dasicsLibBoundLoList.foreach(reg => reg := 0.U)
-   dasicsJumpBoundHiList.foreach(reg => reg := 0.U)
-   dasicsJumpBoundLoList.foreach(reg => reg := 0.U)
+    dasicsJumpBoundHiList.foreach(reg => reg := 0.U)
+    dasicsJumpBoundLoList.foreach(reg => reg := 0.U)
     dasicsLibCfgBase := 0.U
     dasicsJumpCfgBase := 0.U
     dasicsMaincallEntry := 0.U
@@ -631,13 +633,12 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     dasicsActiveZoneReturnPC := 0.U
   }
 
-  when (io.dasics_alu.RedirectValid && io.dasics_csr.inTrustedZone && !io.dasics_csr.targetInTrustedZone && (!io.dasics_alu.IsPulpret || io.dasics_alu.IsDasicscall))  // Jump/branch from trusted to untrusted
-  {
+  when (io.dasics_alu.RedirectValid && io.dasics_csr.inTrustedZone && !io.dasics_csr.targetInTrustedZone && io.dasics_alu.IsDasicscall){  // Jump/branch from trusted to untrusted
     dasicsReturnPC := io.cfIn.pc + 4.U
   }
 
   /* FIXME: This register should be set by software */
-  when (io.dasics_alu.RedirectValid && !io.dasics_csr.inTrustedZone && !io.dasics_csr.inLibFreeZone && io.dasics_csr.targetInLibFreeZone)  // Jump/branch from untrusted-nonfree to untrusted-free
+  when (io.dasics_alu.RedirectValid && !io.dasics_csr.inTrustedZone && !io.dasics_csr.inJumpZone && io.dasics_csr.targetInJumpZone)  // Jump/branch from untrusted-nonfree to untrusted-free
   {
     dasicsActiveZoneReturnPC := io.cfIn.pc + 4.U
   }
@@ -1118,39 +1119,39 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     difftest.io.dumcfg := RegNext(dasicsMainCfg & dasicsUMainCfgRMask)
     difftest.io.dumbound0 := RegNext(dasicsUMainBoundLo)
     difftest.io.dumbound1 := RegNext(dasicsUMainBoundHi)
-//    difftest.io.dlcfg0 := RegNext(dasicsLibCfgBase)
-//    difftest.io.dlbound0 := RegNext(dasicsLibBoundLoList(0))
-//    difftest.io.dlbound1 := RegNext(dasicsLibBoundHiList(0))
-//    difftest.io.dlbound2 := RegNext(dasicsLibBoundLoList(1))
-//    difftest.io.dlbound3 := RegNext(dasicsLibBoundHiList(1))
-//    difftest.io.dlbound4 := RegNext(dasicsLibBoundLoList(2))
-//    difftest.io.dlbound5 := RegNext(dasicsLibBoundHiList(2))
-//    difftest.io.dlbound6 := RegNext(dasicsLibBoundLoList(3))
-//    difftest.io.dlbound7 := RegNext(dasicsLibBoundHiList(3))
-//    difftest.io.dlbound8 := RegNext(dasicsLibBoundLoList(4))
-//    difftest.io.dlbound9 := RegNext(dasicsLibBoundHiList(4))
-//    difftest.io.dlbound10 := RegNext(dasicsLibBoundLoList(5))
-//    difftest.io.dlbound11 := RegNext(dasicsLibBoundHiList(5))
-//    difftest.io.dlbound12 := RegNext(dasicsLibBoundLoList(6))
-//    difftest.io.dlbound13 := RegNext(dasicsLibBoundHiList(6))
-//    difftest.io.dlbound14 := RegNext(dasicsLibBoundLoList(7))
-//    difftest.io.dlbound15 := RegNext(dasicsLibBoundHiList(7))
-//    difftest.io.dlbound16 := RegNext(dasicsLibBoundLoList(8))
-//    difftest.io.dlbound17 := RegNext(dasicsLibBoundHiList(8))
-//    difftest.io.dlbound18 := RegNext(dasicsLibBoundLoList(9))
-//    difftest.io.dlbound19 := RegNext(dasicsLibBoundHiList(9))
-//    difftest.io.dlbound20 := RegNext(dasicsLibBoundLoList(10))
-//    difftest.io.dlbound21 := RegNext(dasicsLibBoundHiList(10))
-//    difftest.io.dlbound22 := RegNext(dasicsLibBoundLoList(11))
-//    difftest.io.dlbound23 := RegNext(dasicsLibBoundHiList(11))
-//    difftest.io.dlbound24 := RegNext(dasicsLibBoundLoList(12))
-//    difftest.io.dlbound25 := RegNext(dasicsLibBoundHiList(12))
-//    difftest.io.dlbound26 := RegNext(dasicsLibBoundLoList(13))
-//    difftest.io.dlbound27 := RegNext(dasicsLibBoundHiList(13))
-//    difftest.io.dlbound28 := RegNext(dasicsLibBoundLoList(14))
-//    difftest.io.dlbound29 := RegNext(dasicsLibBoundHiList(14))
-//    difftest.io.dlbound30 := RegNext(dasicsLibBoundLoList(15))
-//    difftest.io.dlbound31 := RegNext(dasicsLibBoundHiList(15))
+   difftest.io.dlcfg0 := RegNext(dasicsLibCfgBase)
+   difftest.io.dlbound0 := RegNext(dasicsLibBoundLoList(0))
+   difftest.io.dlbound1 := RegNext(dasicsLibBoundHiList(0))
+   difftest.io.dlbound2 := RegNext(dasicsLibBoundLoList(1))
+   difftest.io.dlbound3 := RegNext(dasicsLibBoundHiList(1))
+   difftest.io.dlbound4 := RegNext(dasicsLibBoundLoList(2))
+   difftest.io.dlbound5 := RegNext(dasicsLibBoundHiList(2))
+   difftest.io.dlbound6 := RegNext(dasicsLibBoundLoList(3))
+   difftest.io.dlbound7 := RegNext(dasicsLibBoundHiList(3))
+   difftest.io.dlbound8 := RegNext(dasicsLibBoundLoList(4))
+   difftest.io.dlbound9 := RegNext(dasicsLibBoundHiList(4))
+   difftest.io.dlbound10 := RegNext(dasicsLibBoundLoList(5))
+   difftest.io.dlbound11 := RegNext(dasicsLibBoundHiList(5))
+   difftest.io.dlbound12 := RegNext(dasicsLibBoundLoList(6))
+   difftest.io.dlbound13 := RegNext(dasicsLibBoundHiList(6))
+   difftest.io.dlbound14 := RegNext(dasicsLibBoundLoList(7))
+   difftest.io.dlbound15 := RegNext(dasicsLibBoundHiList(7))
+   difftest.io.dlbound16 := RegNext(dasicsLibBoundLoList(8))
+   difftest.io.dlbound17 := RegNext(dasicsLibBoundHiList(8))
+   difftest.io.dlbound18 := RegNext(dasicsLibBoundLoList(9))
+   difftest.io.dlbound19 := RegNext(dasicsLibBoundHiList(9))
+   difftest.io.dlbound20 := RegNext(dasicsLibBoundLoList(10))
+   difftest.io.dlbound21 := RegNext(dasicsLibBoundHiList(10))
+   difftest.io.dlbound22 := RegNext(dasicsLibBoundLoList(11))
+   difftest.io.dlbound23 := RegNext(dasicsLibBoundHiList(11))
+   difftest.io.dlbound24 := RegNext(dasicsLibBoundLoList(12))
+   difftest.io.dlbound25 := RegNext(dasicsLibBoundHiList(12))
+   difftest.io.dlbound26 := RegNext(dasicsLibBoundLoList(13))
+   difftest.io.dlbound27 := RegNext(dasicsLibBoundHiList(13))
+   difftest.io.dlbound28 := RegNext(dasicsLibBoundLoList(14))
+   difftest.io.dlbound29 := RegNext(dasicsLibBoundHiList(14))
+   difftest.io.dlbound30 := RegNext(dasicsLibBoundLoList(15))
+   difftest.io.dlbound31 := RegNext(dasicsLibBoundHiList(15))
 
 //    difftest.io.djcfg := RegNext(dasicsJumpCfgBase)
 //    difftest.io.djbound0 := RegNext(dasicsJumpBoundLoList(0))
@@ -1184,7 +1185,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     }
   }
 
-  //dasics_csr connection
+  //dasics_csr connectionin
   io.dasics_csr.pc := io.cfIn.pc
   io.dasics_csr.pmode := privilegeMode
   io.dasics_csr.MainCfg := dasicsMainCfg
@@ -1201,5 +1202,11 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   for (i <- 0 until NumDasicsMemBounds){
     io.dasics_csr.LibBoundHiList(i) := dasicsLibBoundHiList(i)
     io.dasics_csr.LibBoundLoList(i) := dasicsLibBoundLoList(i)
+  }
+
+  io.dasics_csr.JumpCfgBase    := dasicsJumpCfgBase
+    for (i <- 0 until NumDasicsJumpBounds){
+    io.dasics_csr.JumpBoundHiList(i) := dasicsJumpBoundHiList(i)
+    io.dasics_csr.JumpBoundLoList(i) := dasicsJumpBoundLoList(i)
   }
 }

@@ -81,6 +81,8 @@ trait HasDasicsConst {
   def LIBCFG_X = 0x2
   def LIBCFG_R = 0x1
   def LIBCFG_W = 0x0
+
+  def JUMPCFG_V = 0x0
 }
 
 abstract class NutCoreModule extends Module with HasNutCoreParameter with HasNutCoreConst with HasExceptionNO with HasBackendConst with HasNutCoreLog with HasDasicsConst

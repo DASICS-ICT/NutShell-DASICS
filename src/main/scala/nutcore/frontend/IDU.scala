@@ -86,9 +86,12 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   val rvc_src2 = LookupTree(rvcSrc2Type, RegLookUpTable.map(p => (p._1, p._2)))
   val rvc_dest =  LookupTree(rvcDestType, RegLookUpTable.map(p => (p._1, p._2)))
 
+  val is_dasicscall = (instr(6,0) === "b0001011".U)
+
   val rfSrc1 = Mux(isRVC, rvc_src1, rs)
   val rfSrc2 = Mux(isRVC, rvc_src2, rt)
-  val rfDest = Mux(isRVC, rvc_dest, rd)
+  val rfDest = Mux(isRVC, rvc_dest, 
+                   Mux(is_dasicscall,1.U(5.W),rd))
   // TODO: refactor decode logic
   // make non-register addressing to zero, since isu.sb.isBusy(0) === false.B
   io.out.bits.ctrl.rfSrc1 := Mux(src1Type === SrcType.pc, 0.U, rfSrc1)
@@ -103,7 +106,9 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
     InstrSA -> SignExt(Cat(instr(31, 25), instr(11, 7)), XLEN),
     InstrB  -> SignExt(Cat(instr(31), instr(7), instr(30, 25), instr(11, 8), 0.U(1.W)), XLEN),
     InstrU  -> SignExt(Cat(instr(31, 12), 0.U(12.W)), XLEN),//fixed
-    InstrJ  -> SignExt(Cat(instr(31), instr(19, 12), instr(20), instr(30, 21), 0.U(1.W)), XLEN)
+    InstrJ  -> Mux(is_dasicscall,
+                   SignExt(Cat(instr(31), instr(7), instr(20,15), instr(11, 8), instr(30,21), 0.U(1.W)), XLEN),
+                   SignExt(Cat(instr(31), instr(19, 12), instr(20), instr(30, 21), 0.U(1.W)), XLEN))
   ))
   val immrvc = LookupTree(rvcImmType, List(
     // InstrIW -> Cat(Fill(20+32, instr(31)), instr(31, 20)),//fixed
