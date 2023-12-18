@@ -55,6 +55,7 @@ class DasicsExuCsrIO extends DasicsIsuCsrIO{
   val inJumpZone = Output(Bool())
   val targetInTrustedZone = Output(Bool())
   val targetInJumpZone = Output(Bool())
+
   val aluSLibInstrFault  = Output(Bool())
   val aluULibInstrFault  = Output(Bool())
 

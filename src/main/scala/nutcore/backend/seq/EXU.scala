@@ -94,7 +94,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
       i.rfWen && (
         !lsuTlbPF && !lsu.io.loadAddrMisaligned && !lsu.io.storeAddrMisaligned && !lsu.io.dasics_lsu_deny ||
           !fuValids(FuType.lsu)
-      ) && !(csr.io.wenFix && fuValids(FuType.csr))
+      ) && !(csr.io.wenFix && (fuValids(FuType.csr) || csr.io.dasics_instr_fault))
     o.rfDest := i.rfDest
     o.fuType := i.fuType
   }

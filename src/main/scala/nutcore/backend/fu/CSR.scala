@@ -228,6 +228,7 @@ class CSRIO extends FunctionUnitIO {
   val dmemMMU = Flipped(new MMUIO)
   val wenFix = Output(Bool())
 
+  val dasics_instr_fault = Output(Bool())
   val dasics_csr = Flipped(new DasicsExuCsrIO)
   val dasics_alu = new DasicsAluIO
 }
@@ -714,9 +715,33 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     dmemAddrMisalignedAddr := lsuExecAddr
   }
 
-  when(io.dasics_csr.aluSLibInstrFault || io.dasics_csr.lsuSLibLoadFault || io.dasics_csr.lsuSLibStoreFault)  // Lower priority
+  // late dasics instr fault
+  val DSInstrFaultReg = RegInit(false.B)
+  val DUInstrFaultReg = RegInit(false.B)
+  val DInstrFaultPcReg = RegInit(0.U(XLEN.W))
+  val DInstrFaultTargetReg = RegInit(0.U(XLEN.W))
+
+  val RaiseDSInstrFault = (io.cfIn.pc === DInstrFaultTargetReg) && DSInstrFaultReg
+  val RaiseDUInstrFault = (io.cfIn.pc === DInstrFaultTargetReg) && DUInstrFaultReg
+  val DInstrFaultUsedReg = RegNext(RaiseDSInstrFault | RaiseDUInstrFault)
+
+  io.dasics_instr_fault := RaiseDSInstrFault | RaiseDUInstrFault
+
+  when (DInstrFaultUsedReg && !(RaiseDSInstrFault | RaiseDUInstrFault)) {
+    DSInstrFaultReg := false.B
+    DUInstrFaultReg := false.B
+    DInstrFaultPcReg := 0.U
+    DInstrFaultTargetReg := 0.U
+  }.elsewhen (io.dasics_csr.aluSLibInstrFault | io.dasics_csr.aluULibInstrFault) {
+    DSInstrFaultReg := io.dasics_csr.aluSLibInstrFault
+    DUInstrFaultReg := io.dasics_csr.aluULibInstrFault
+    DInstrFaultPcReg := io.cfIn.pc
+    DInstrFaultTargetReg := io.dasics_alu.RedirectTarget
+  }
+
+  when(RaiseDSInstrFault || io.dasics_csr.lsuSLibLoadFault || io.dasics_csr.lsuSLibStoreFault)  // Lower priority
   {
-    mtval := Mux(io.dasics_csr.aluSLibInstrFault, SignExt(io.dasics_alu.RedirectTarget, XLEN), SignExt(io.dasics_csr.lsuAddr, XLEN))
+    mtval := Mux(RaiseDSInstrFault, SignExt(DInstrFaultTargetReg, XLEN), SignExt(io.dasics_csr.lsuAddr, XLEN))
   }
 
   when(hasInstrPageFault || hasLoadPageFault || hasStorePageFault){
@@ -735,9 +760,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     Debug("[ML] %d: addr %x pc %x priviledgeMode %x\n", GTimer(), SignExt(dmemAddrMisalignedAddr, XLEN), io.cfIn.pc, privilegeMode)
   }
 
-  when(io.dasics_csr.aluULibInstrFault || io.dasics_csr.lsuULibLoadFault || io.dasics_csr.lsuULibStoreFault)
+  when(RaiseDUInstrFault || io.dasics_csr.lsuULibLoadFault || io.dasics_csr.lsuULibStoreFault)
   {
-    utval := Mux(io.dasics_csr.aluULibInstrFault, SignExt(io.dasics_alu.RedirectTarget, XLEN), SignExt(io.dasics_csr.lsuAddr, XLEN))
+    utval := Mux(RaiseDUInstrFault, SignExt(DInstrFaultTargetReg, XLEN), SignExt(io.dasics_csr.lsuAddr, XLEN))
 //    printf("[DEBUG] uepc = 0x%x, ucause = 0x%x, utval = 0x%x, returnPC = 0x%x, fzReturnPC = 0x%x\n", uepc, ucause, utval, dasicsReturnPC, dasicsActiveZoneReturnPC)
   }
 
@@ -776,7 +801,6 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val raiseIntr = io.cfIn.intrVec.asUInt.orR
 
   // exceptions
-
   // TODO: merge iduExceptionVec, csrExceptionVec as raiseExceptionVec
   val csrExceptionVec = Wire(Vec(ExceptionTypes, Bool()))
   csrExceptionVec.map(_ := false.B)
@@ -787,8 +811,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   csrExceptionVec(illegalInstr) := (isIllegalAddr || isIllegalAccess) && wen && !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
   csrExceptionVec(loadPageFault) := hasLoadPageFault
   csrExceptionVec(storePageFault) := hasStorePageFault
-  csrExceptionVec(dasicsUInstrAccessFault) := io.dasics_csr.aluULibInstrFault
-  csrExceptionVec(dasicsSInstrAccessFault) := io.dasics_csr.aluSLibInstrFault
+  csrExceptionVec(dasicsUInstrAccessFault) := RaiseDUInstrFault
+  csrExceptionVec(dasicsSInstrAccessFault) := RaiseDSInstrFault
   csrExceptionVec(dasicsULoadAccessFault) := io.dasics_csr.lsuULibLoadFault
   csrExceptionVec(dasicsSLoadAccessFault) := io.dasics_csr.lsuSLibLoadFault
   csrExceptionVec(dasicsUStoreAccessFault) := io.dasics_csr.lsuULibStoreFault
@@ -825,8 +849,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val delegS = (delegVecM(causeNO(4,0))) && (privilegeMode < ModeM)
   val delegU = (delegVecS(causeNO(4,0))) && (privilegeMode < ModeS)
   val tvalWen = !(hasInstrPageFault || hasLoadPageFault || hasStorePageFault || hasLoadAddrMisaligned || hasStoreAddrMisaligned ||
-    io.dasics_csr.aluULibInstrFault || io.dasics_csr.lsuULibLoadFault || io.dasics_csr.lsuULibStoreFault ||
-    io.dasics_csr.aluSLibInstrFault || io.dasics_csr.lsuSLibLoadFault || io.dasics_csr.lsuSLibStoreFault) || raiseIntr // in nutcore-riscv64, no exception will come together with PF
+    RaiseDUInstrFault || io.dasics_csr.lsuULibLoadFault || io.dasics_csr.lsuULibStoreFault ||
+    RaiseDSInstrFault || io.dasics_csr.lsuSLibLoadFault || io.dasics_csr.lsuSLibStoreFault) || raiseIntr // in nutcore-riscv64, no exception will come together with PF
 
   ret := isMret || isSret || isUret
   trapTarget := Mux(delegS, Mux(delegU, utvec, stvec), mtvec)(VAddrBits-1, 0)
@@ -884,7 +908,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
     when (delegS && !delegU) {
       scause := causeNO
-      sepc := SignExt(io.cfIn.pc, XLEN)
+      sepc := Mux(RaiseDSInstrFault || RaiseDUInstrFault,
+                  DInstrFaultPcReg,
+                  SignExt(io.cfIn.pc, XLEN))
       mstatusNew.spp := privilegeMode
       mstatusNew.pie.s := mstatusOld.ie.s
       mstatusNew.ie.s := false.B
@@ -894,14 +920,18 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
       // trapTarget := stvec(VAddrBits-1. 0)
     }.elsewhen (delegS && delegU) {
       ucause := causeNO
-      uepc := SignExt(io.cfIn.pc, XLEN)
+      uepc := Mux(RaiseDUInstrFault,
+                  DInstrFaultPcReg,
+                  SignExt(io.cfIn.pc, XLEN))
       mstatusNew.pie.u := mstatusOld.ie.u
       mstatusNew.ie.u := false.B
       privilegeMode := ModeU
       when(tvalWen){utval := 0.U}
     }.otherwise {
       mcause := causeNO
-      mepc := SignExt(io.cfIn.pc, XLEN)
+      mepc := Mux(RaiseDSInstrFault,
+                      DInstrFaultPcReg,
+                      SignExt(io.cfIn.pc, XLEN))
       mstatusNew.mpp := privilegeMode
       mstatusNew.pie.m := mstatusOld.ie.m
       mstatusNew.ie.m := false.B
