@@ -33,7 +33,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
     val dmem = new SimpleBusUC(addrBits = VAddrBits)
     val forward = new ForwardIO
     val memMMU = Flipped(new MemMMUIO)
-    val dasics_isu_csr = Flipped(new DasicsIsuCsrIO)
+    val dasics_isu = new DasicsIsuIO
   })
 
   val src1 = io.in.bits.data.src1(XLEN-1,0)
@@ -156,7 +156,14 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   }
 
   //dasics_checker
-  val dasics_checker = Module(new DasicsExuChecker)
+  val dasics_checker = Module(new DasicsChecker)
+  //isu
+  dasics_checker.io.isu.pc := io.dasics_isu.pc
+  dasics_checker.io.isu.addr := io.dasics_isu.addr
+  io.dasics_isu.InSTrustedZone   := dasics_checker.io.isu.InSTrustedZone
+  io.dasics_isu.InUTrustedZone   := dasics_checker.io.isu.InUTrustedZone
+  io.dasics_isu.PermitLibLoad    := dasics_checker.io.isu.PermitLibLoad
+  io.dasics_isu.PermitLibStore   := dasics_checker.io.isu.PermitLibStore
   //alu
   dasics_checker.io.alu <> alu.io.dasics_alu
   //lsu
@@ -172,13 +179,4 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   dasics_checker.io.csr <> csr.io.dasics_csr
   //others
   csr.io.dasics_alu <> alu.io.dasics_alu
-  //for DasicsIsuChecker
-  io.dasics_isu_csr.MainCfg := csr.io.dasics_csr.MainCfg
-  io.dasics_isu_csr.SMainBoundHi := csr.io.dasics_csr.SMainBoundHi
-  io.dasics_isu_csr.SMainBoundLo := csr.io.dasics_csr.SMainBoundLo
-  io.dasics_isu_csr.UMainBoundHi := csr.io.dasics_csr.UMainBoundHi
-  io.dasics_isu_csr.UMainBoundLo := csr.io.dasics_csr.UMainBoundLo
-  io.dasics_isu_csr.LibCfgBase := csr.io.dasics_csr.LibCfgBase
-  io.dasics_isu_csr.LibBoundHiList := csr.io.dasics_csr.LibBoundHiList
-  io.dasics_isu_csr.LibBoundLoList := csr.io.dasics_csr.LibBoundLoList
 }

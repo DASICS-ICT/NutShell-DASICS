@@ -31,7 +31,7 @@ class ISU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
     val wb = Flipped(new WriteBackIO)
     val forward = Flipped(new ForwardIO)
     val flush = Input(Bool())
-    val dasics_isu_csr = new DasicsIsuCsrIO
+    val dasics_isu = Flipped(new DasicsIsuIO)
   })
 
   io.out.bits := DontCare
@@ -115,13 +115,11 @@ class ISU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
     difftest.io.gpr    := VecInit((0 to NRReg-1).map(i => rf.read(i.U)))
   }
 
-  //dasics_isu_checker
-  val dasics_isu_checker = Module(new DasicsIsuChecker)
-  dasics_isu_checker.io.csr := io.dasics_isu_csr
-  dasics_isu_checker.io.isu.addr := isuAddr
-  dasics_isu_checker.io.isu.pc := io.in(0).bits.cf.pc
-  io.out.bits.ctrl.inSTrustedZone := dasics_isu_checker.io.isu.InSTrustedZone
-  io.out.bits.ctrl.inUTrustedZone := dasics_isu_checker.io.isu.InUTrustedZone
-  io.out.bits.ctrl.permitLibLoad := dasics_isu_checker.io.isu.PermitLibLoad
-  io.out.bits.ctrl.permitLibStore := dasics_isu_checker.io.isu.PermitLibStore
+  //dasics_checker
+  io.dasics_isu.addr := isuAddr
+  io.dasics_isu.pc := io.in(0).bits.cf.pc
+  io.out.bits.ctrl.inSTrustedZone := io.dasics_isu.InSTrustedZone
+  io.out.bits.ctrl.inUTrustedZone := io.dasics_isu.InUTrustedZone
+  io.out.bits.ctrl.permitLibLoad := io.dasics_isu.PermitLibLoad
+  io.out.bits.ctrl.permitLibStore := io.dasics_isu.PermitLibStore
 }

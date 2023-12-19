@@ -229,7 +229,7 @@ class CSRIO extends FunctionUnitIO {
   val wenFix = Output(Bool())
 
   val dasics_instr_fault = Output(Bool())
-  val dasics_csr = Flipped(new DasicsExuCsrIO)
+  val dasics_csr = Flipped(new DasicsCsrIO)
   val dasics_alu = new DasicsAluIO
 }
 
