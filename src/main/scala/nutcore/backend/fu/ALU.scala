@@ -141,7 +141,7 @@ class ALU(hasBru: Boolean = false) extends NutCoreModule {
   io.out.bits := Mux(isBru, Mux(!isRVC, SignExt(io.cfIn.pc, AddrBits) + 4.U, SignExt(io.cfIn.pc, AddrBits) + 2.U), aluRes)
 
   // Send redirect information to CSR module to judge whether to trigger DasicsInstrAccessFault or not
-  io.dasics_alu.RedirectValid := io.redirect.valid
+  io.dasics_alu.RedirectValid := valid && isBru // whether prediction is right, we should write csr
   io.dasics_alu.RedirectTarget := io.redirect.target
   // io.dasics_alu.IsPulpret := (valid && func === ALUOpType.pulpret)
   io.dasics_alu.IsDasicscall := (valid && (func === ALUOpType.dasicscall_j || func === ALUOpType.dasicscall_jr))
