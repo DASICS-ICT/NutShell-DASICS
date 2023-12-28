@@ -634,7 +634,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     dasicsActiveZoneReturnPC := 0.U
   }
 
-  when (io.dasics_alu.RedirectValid && io.dasics_csr.inTrustedZone && !io.dasics_csr.targetInTrustedZone && io.dasics_alu.IsDasicscall){  // Jump/branch from trusted to untrusted
+  when (io.dasics_alu.RedirectValid && io.dasics_csr.inTrustedZone /*&& !io.dasics_csr.targetInTrustedZone*/ && io.dasics_alu.IsDasicscall){  // Jump/branch from trusted to untrusted
     dasicsReturnPC := io.cfIn.pc + 4.U
   }
 
