@@ -77,7 +77,7 @@ class DasicsChecker(implicit val p: NutCoreConfig) extends NutCoreModule with Ha
   val io = IO(new DasicsCheckerIO)
   // DASICS Main/Lib wen check
   // Note: when DASICS is enabled, lib functions cannot access CSRs
-  def detectInZone(addr: UInt, hi: UInt, lo: UInt, en: Bool) : Bool = en && addr >= lo && addr <= hi
+  def detectInZone(addr: UInt, hi: UInt, lo: UInt, en: Bool) : Bool = en && addr >= lo && addr < hi // lo <= addr < hi
   val isSMainEnable = detectInZone(io.csr.SMainBoundLo, io.csr.SMainBoundHi, 0.U(XLEN.W), io.csr.MainCfg(MCFG_SENA))
   val isUMainEnable = detectInZone(io.csr.UMainBoundLo, io.csr.UMainBoundHi, 0.U(XLEN.W), io.csr.MainCfg(MCFG_UENA))
 
