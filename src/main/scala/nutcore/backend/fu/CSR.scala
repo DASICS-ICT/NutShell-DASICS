@@ -122,11 +122,11 @@ trait HasCSRConst {
 
   // Machine Memory Protection
   // TBD
-  val Pmpcfg0       = 0x3A0
-  val Pmpcfg1       = 0x3A1
-  val Pmpcfg2       = 0x3A2
-  val Pmpcfg3       = 0x3A3
-  val PmpaddrBase   = 0x3B0
+  // val Pmpcfg0       = 0x3A0
+  // val Pmpcfg1       = 0x3A1
+  // val Pmpcfg2       = 0x3A2
+  // val Pmpcfg3       = 0x3A3
+  // val PmpaddrBase   = 0x3B0
 
   // Machine Counter/Timers
   // Currently, NutCore uses perfcnt csr set instead of standard Machine Counter/Timers
@@ -352,14 +352,14 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val mideleg = RegInit(UInt(XLEN.W), 0.U)
   val mscratch = RegInit(UInt(XLEN.W), 0.U)
 
-  val pmpcfg0 = RegInit(UInt(XLEN.W), 0.U)
-  val pmpcfg1 = RegInit(UInt(XLEN.W), 0.U)
-  val pmpcfg2 = RegInit(UInt(XLEN.W), 0.U)
-  val pmpcfg3 = RegInit(UInt(XLEN.W), 0.U)
-  val pmpaddr0 = RegInit(UInt(XLEN.W), 0.U)
-  val pmpaddr1 = RegInit(UInt(XLEN.W), 0.U)
-  val pmpaddr2 = RegInit(UInt(XLEN.W), 0.U)
-  val pmpaddr3 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpcfg0 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpcfg1 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpcfg2 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpcfg3 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpaddr0 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpaddr1 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpaddr2 = RegInit(UInt(XLEN.W), 0.U)
+  // val pmpaddr3 = RegInit(UInt(XLEN.W), 0.U)
 
   // Machine-Level DASICS CSRs
   val dasicsMainCfg      = RegInit(UInt(XLEN.W), 0.U)
@@ -558,14 +558,14 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(Mip, mip.asUInt, 0.U, MaskedRegMap.Unwritable),
 
     // Machine Memory Protection
-    MaskedRegMap(Pmpcfg0, pmpcfg0),
-    MaskedRegMap(Pmpcfg1, pmpcfg1),
-    MaskedRegMap(Pmpcfg2, pmpcfg2),
-    MaskedRegMap(Pmpcfg3, pmpcfg3),
-    MaskedRegMap(PmpaddrBase + 0, pmpaddr0),
-    MaskedRegMap(PmpaddrBase + 1, pmpaddr1),
-    MaskedRegMap(PmpaddrBase + 2, pmpaddr2),
-    MaskedRegMap(PmpaddrBase + 3, pmpaddr3)
+    // MaskedRegMap(Pmpcfg0, pmpcfg0),
+    // MaskedRegMap(Pmpcfg1, pmpcfg1),
+    // MaskedRegMap(Pmpcfg2, pmpcfg2),
+    // MaskedRegMap(Pmpcfg3, pmpcfg3),
+    // MaskedRegMap(PmpaddrBase + 0, pmpaddr0),
+    // MaskedRegMap(PmpaddrBase + 1, pmpaddr1),
+    // MaskedRegMap(PmpaddrBase + 2, pmpaddr2),
+    // MaskedRegMap(PmpaddrBase + 3, pmpaddr3)
     //*dest = src & (((word_t)1 << (CONFIG_PADDRBITS(36) - PMP_SHIFT(2))) - 1);
 
   ) ++ userMapping ++ perfCntsLoMapping ++ dasicsMapping //++ (if (XLEN == 32) perfCntsHiMapping else Nil)
@@ -634,7 +634,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     dasicsActiveZoneReturnPC := 0.U
   }
 
-  when (io.dasics_alu.RedirectValid && io.dasics_csr.inTrustedZone /*&& !io.dasics_csr.targetInTrustedZone*/ && io.dasics_alu.IsDasicscall){  // Jump/branch from trusted to untrusted
+  when (io.dasics_alu.RedirectValid && io.dasics_csr.inTrustedZone && !io.dasics_csr.targetInTrustedZone && io.dasics_alu.IsDasicscall){  // Jump/branch from trusted to untrusted
     dasicsReturnPC := io.cfIn.pc + 4.U
   }
 

@@ -43,7 +43,7 @@ trait HasNutCoreParameter {
   val DataBits = XLEN
   val DataBytes = DataBits / 8
   val EnableVirtualMemory = if (Settings.get("HasDTLB") && Settings.get("HasITLB")) true else false
-  val EnablePerfCnt = true
+  val EnablePerfCnt = false
   val ExceptionTypes = 32
   val InterruptTypes = 12
   val ImpID = 0xda220002L // mimpid CSR, for implementation version: DASICS UCAS-OS 2022v2
