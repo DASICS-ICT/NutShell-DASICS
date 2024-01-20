@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import nutcore.backend.fu.{DasicsCheckFault}
 
 class CtrlSignalIO extends NutCoreBundle {
   val src1Type = Output(SrcType())
@@ -169,15 +168,6 @@ class InstFetchIO extends NutCoreBundle {
   val instr = Output(UInt(64.W))
 }
 
-class IFUDasicsIO extends NutCoreBundle {
-  // for tagger
-  val startAddr: UInt = Output(UInt(VAddrBits.W))
-  val notTrusted: Vec[Bool] = Input(Vec(FetchWidth * 2, Bool()))
-  // for branch checker
-  val lastBranch = ValidIO(UInt(VAddrBits.W))
-  val brResp: UInt = Input(DasicsCheckFault())
-}
-
 // Micro OP
 class RenamedDecodeIO extends NutCoreBundle with HasBackendConst {
   val decode = new DecodeIO
@@ -187,11 +177,4 @@ class RenamedDecodeIO extends NutCoreBundle with HasBackendConst {
   val src1Rdy = Output(Bool())
   val src2Rdy = Output(Bool())
   val brMask = Output(UInt(checkpointSize.W))
-}
-class DistributedCSRIO extends NutCoreBundle {
-  // CSR has been writen by csr inst, copies of csr should be updated
-  val w = ValidIO(new Bundle {
-    val addr = Output(UInt(12.W))
-    val data = Output(UInt(XLEN.W))
-  })
 }

@@ -22,7 +22,6 @@ import chisel3.util.experimental.BoringUtils
 import utils._
 import bus.simplebus._
 import chisel3.experimental.IO
-import nutcore.backend.fu.{DasicsTagger, DasicsBranchChecker}
 
 class FrontendIO(implicit val p: NutCoreConfig) extends Bundle with HasNutCoreConst {
   val imem = new SimpleBusUC(userBits = ICacheUserBundleWidth, addrBits = VAddrBits)
