@@ -793,7 +793,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val intrVecEnable = Wire(Vec(InterruptTypes, Bool()))
   intrVecEnable.zip(ideleg.asBools).map{case(x,y) => x := priviledgedEnableDetect(y)}
   val intrVec = mie(11,0) & mipRaiseIntr.asUInt & intrVecEnable.asUInt
-  BoringUtils.addSource(intrVec, "intrVecIDU")
+  BoringUtils.addSource(WireInit(intrVec), "intrVecIDU")
   // val intrNO = PriorityEncoder(intrVec)
 
   val intrNO = IntPriority.foldRight(0.U)((i: Int, sum: UInt) => Mux(io.cfIn.intrVec(i), i.U, sum))
@@ -820,7 +820,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   csrExceptionVec(dasicsUEcallFault) := privilegeMode === ModeU && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone
   csrExceptionVec(dasicsSEcallFault) := privilegeMode === ModeS && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone
   val iduExceptionVec = io.cfIn.exceptionVec
-  val raiseExceptionVec = csrExceptionVec.asUInt() | iduExceptionVec.asUInt()
+  val raiseExceptionVec = csrExceptionVec.asUInt | iduExceptionVec.asUInt
   val raiseException = raiseExceptionVec.orR
   val exceptionNO = ExcPriority.foldRight(0.U)((i: Int, sum: UInt) => Mux(raiseExceptionVec(i), i.U, sum))
   io.wenFix := raiseException
@@ -835,7 +835,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   io.redirect.rtype := 0.U
   io.redirect.target := Mux(resetSatp, io.cfIn.pc + 4.U, Mux(raiseExceptionIntr, trapTarget, retTarget))
 
-  Debug(raiseExceptionIntr, "excin %b excgen %b", csrExceptionVec.asUInt(), iduExceptionVec.asUInt())
+  Debug(raiseExceptionIntr, "excin %b excgen %b", csrExceptionVec.asUInt, iduExceptionVec.asUInt)
   Debug(raiseExceptionIntr, "int/exc: pc %x int (%d):%x exc: (%d):%x\n",io.cfIn.pc, intrNO, io.cfIn.intrVec.asUInt, exceptionNO, raiseExceptionVec.asUInt)
   Debug(raiseExceptionIntr, "[MST] time %d pc %x mstatus %x mideleg %x medeleg %x mode %x\n", GTimer(), io.cfIn.pc, mstatus, mideleg , medeleg, privilegeMode)
   Debug(io.redirect.valid, "redirect to %x\n", io.redirect.target)
@@ -966,8 +966,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     "McsrInstr"   -> (0xb09, "perfCntCondMcsrInstr"  ),
     "MloadInstr"  -> (0xb0a, "perfCntCondMloadInstr" ),
     "MmmioInstr"  -> (0xb0b, "perfCntCondMmmioInstr" ),
-    "MicacheHit"  -> (0xb0c, "perfCntCondMicacheHit" ),
-    "MdcacheHit"  -> (0xb0d, "perfCntCondMdcacheHit" ),
+    // "MicacheHit"  -> (0xb0c, "perfCntCondMicacheHit" ),
+    // "MdcacheHit"  -> (0xb0d, "perfCntCondMdcacheHit" ),
     "MmulInstr"   -> (0xb0e, "perfCntCondMmulInstr"  ),
     "MifuFlush"   -> (0xb0f, "perfCntCondMifuFlush"  ),
     "MbpBRight"   -> (0xb10, "MbpBRight"             ),
@@ -978,7 +978,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     "MbpIWrong"   -> (0xb15, "MbpIWrong"             ),
     "MbpRRight"   -> (0xb16, "MbpRRight"             ),
     "MbpRWrong"   -> (0xb17, "MbpRWrong"             ),
-    "Ml2cacheHit" -> (0xb18, "perfCntCondMl2cacheHit"),
+    // "Ml2cacheHit" -> (0xb18, "perfCntCondMl2cacheHit"),
     "Custom1"     -> (0xb19, "Custom1"               ),
     "Custom2"     -> (0xb1a, "Custom2"               ),
     "Custom3"     -> (0xb1b, "Custom3"               ),
@@ -1060,9 +1060,11 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val pendingLS = WireInit(0.U(5.W))
   val pendingSCmt = WireInit(0.U(5.W))
   val pendingSReq = WireInit(0.U(5.W))
-  BoringUtils.addSink(pendingLS, "perfCntSrcMpendingLS")
-  BoringUtils.addSink(pendingSCmt, "perfCntSrcMpendingSCmt")
-  BoringUtils.addSink(pendingSReq, "perfCntSrcMpendingSReq")
+  if (EnableOutOfOrderExec) {
+    BoringUtils.addSink(pendingLS, "perfCntSrcMpendingLS")
+    BoringUtils.addSink(pendingSCmt, "perfCntSrcMpendingSCmt")
+    BoringUtils.addSink(pendingSReq, "perfCntSrcMpendingSReq")
+  }
   when(perfCntCond(0xb03 & 0x7f)) { perfCnts(0xb02 & 0x7f) := perfCnts(0xb02 & 0x7f) + 2.U } // Minstret += 2 when MultiCommit
   if (hasPerfCnt) {
     when(true.B) { perfCnts(0xb63 & 0x7f) := perfCnts(0xb63 & 0x7f) + pendingLS }
@@ -1081,14 +1083,17 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     }
   }}
 
-  val nutcoretrap = WireInit(false.B)
-  BoringUtils.addSink(nutcoretrap, "nutcoretrap")
   def readWithScala(addr: Int): UInt = mapping(addr)._1
 
   if (!p.FPGAPlatform) {
+
     // to monitor
     BoringUtils.addSource(readWithScala(perfCntList("Mcycle")._1), "simCycleCnt")
     BoringUtils.addSource(readWithScala(perfCntList("Minstret")._1), "simInstrCnt")
+
+    val nutcoretrap = WireInit(false.B)
+    BoringUtils.addSink(nutcoretrap, "nutcoretrap")
+
 
     if (hasPerfCnt && false) {
       // display all perfcnt when nutcoretrap is executed

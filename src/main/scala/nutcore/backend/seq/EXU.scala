@@ -102,7 +102,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   io.out.bits.decode.cf.instr := io.in.bits.cf.instr
   io.out.bits.decode.cf.runahead_checkpoint_id := io.in.bits.cf.runahead_checkpoint_id
   io.out.bits.decode.cf.isBranch := io.in.bits.cf.isBranch
-  io.out.bits.decode.cf.redirect <>
+  io.out.bits.decode.cf.redirect :=
     Mux(mou.io.redirect.valid, mou.io.redirect,
       Mux(csr.io.redirect.valid, csr.io.redirect, alu.io.redirect))
   
@@ -110,7 +110,7 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   Debug(mou.io.redirect.valid || csr.io.redirect.valid || alu.io.redirect.valid, "[REDIRECT] flush: %d mou %x csr %x alu %x\n", io.flush, mou.io.redirect.target, csr.io.redirect.target, alu.io.redirect.target)
 
   // FIXME: should handle io.out.ready == false
-  io.out.valid := io.in.valid && MuxLookup(fuType, true.B, List(
+  io.out.valid := io.in.valid && MuxLookup(fuType, true.B)(List(
     FuType.lsu -> lsu.io.out.valid,
     FuType.mdu -> mdu.io.out.valid
   ))
@@ -121,25 +121,25 @@ class EXU(implicit val p: NutCoreConfig) extends NutCoreModule {
   io.out.bits.commits(FuType.mdu) := mduOut
   io.out.bits.commits(FuType.mou) := 0.U
 
-  io.in.ready := !io.in.valid || io.out.fire()
+  io.in.ready := !io.in.valid || io.out.fire
 
   io.forward.valid := io.in.valid
   io.forward.wb.rfWen := io.in.bits.ctrl.rfWen
   io.forward.wb.rfDest := io.in.bits.ctrl.rfDest
-  io.forward.wb.rfData := Mux(alu.io.out.fire(), aluOut, lsuOut)
+  io.forward.wb.rfData := Mux(alu.io.out.fire, aluOut, lsuOut)
   io.forward.fuType := io.in.bits.ctrl.fuType
 
   val isBru = ALUOpType.isBru(fuOpType)
-  BoringUtils.addSource(alu.io.out.fire() && !isBru, "perfCntCondMaluInstr")
-  BoringUtils.addSource(alu.io.out.fire() && isBru, "perfCntCondMbruInstr")
-  BoringUtils.addSource(lsu.io.out.fire(), "perfCntCondMlsuInstr")
-  BoringUtils.addSource(mdu.io.out.fire(), "perfCntCondMmduInstr")
-  BoringUtils.addSource(csr.io.out.fire(), "perfCntCondMcsrInstr")
+  BoringUtils.addSource(WireInit(alu.io.out.fire && !isBru), "perfCntCondMaluInstr")
+  BoringUtils.addSource(WireInit(alu.io.out.fire && isBru), "perfCntCondMbruInstr")
+  BoringUtils.addSource(WireInit(lsu.io.out.fire), "perfCntCondMlsuInstr")
+  BoringUtils.addSource(WireInit(mdu.io.out.fire), "perfCntCondMmduInstr")
+  BoringUtils.addSource(WireInit(csr.io.out.fire), "perfCntCondMcsrInstr")
 
   if (!p.FPGAPlatform) {
     val cycleCnt = WireInit(0.U(64.W))
     val instrCnt = WireInit(0.U(64.W))
-    val nutcoretrap = io.in.bits.ctrl.isNutCoreTrap && io.in.valid
+    val nutcoretrap = WireInit(io.in.bits.ctrl.isNutCoreTrap && io.in.valid)
 
     BoringUtils.addSink(cycleCnt, "simCycleCnt")
     BoringUtils.addSink(instrCnt, "simInstrCnt")

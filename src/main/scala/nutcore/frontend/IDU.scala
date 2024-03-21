@@ -164,12 +164,12 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
 
   //output signals
   io.out.valid := io.in.valid
-  io.in.ready := !io.in.valid || io.out.fire() && !hasIntr
+  io.in.ready := !io.in.valid || io.out.fire && !hasIntr
   io.out.bits.cf <> io.in.bits
   // fix c_break
 
 
-  Debug(io.out.fire(), "issue: pc %x npc %x instr %x\n", io.out.bits.cf.pc, io.out.bits.cf.pnpc, io.out.bits.cf.instr)
+  Debug(io.out.fire, "issue: pc %x npc %x instr %x\n", io.out.bits.cf.pc, io.out.bits.cf.pnpc, io.out.bits.cf.instr)
 
   val intrVec = WireInit(0.U(12.W))
   BoringUtils.addSink(intrVec, "intrVecIDU")
@@ -216,10 +216,13 @@ class IDU(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
   val runahead = Module(new DifftestRunaheadEvent)
   runahead.io.clock         := clock
   runahead.io.coreid        := 0.U
-  runahead.io.valid         := io.out(0).fire()
+  runahead.io.may_replay    := false.B
+  runahead.io.index         := 0.U
+  runahead.io.valid         := io.out(0).fire
   runahead.io.branch        := decoder1.io.isBranch
   runahead.io.pc            := io.out(0).bits.cf.pc
   runahead.io.checkpoint_id := checkpoint_id
+
   when(runahead.io.valid && runahead.io.branch) {
     checkpoint_id := checkpoint_id + 1.U // allocate a new checkpoint_id
   }
@@ -230,6 +233,6 @@ class IDU(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
   // }
 
   if (!p.FPGAPlatform) {
-    BoringUtils.addSource(decoder1.io.isWFI | decoder2.io.isWFI, "isWFI")
+    BoringUtils.addSource(WireInit(decoder1.io.isWFI | decoder2.io.isWFI), "isWFI")
   }
 }

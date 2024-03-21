@@ -38,7 +38,7 @@ object LogUtil {
 
   def displayLog: Bool = {
     val enableDisplay = WireInit(false.B)
-    BoringUtils.addSink(enableDisplay, "DISPLAY_ENABLE")
+    // BoringUtils.addSink(enableDisplay, "DISPLAY_ENABLE")   => closed due to FPGA
     enableDisplay
   }
 

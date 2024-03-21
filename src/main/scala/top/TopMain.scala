@@ -21,6 +21,7 @@ import system.NutShell
 import device.{AXI4VGA}
 import sim.SimTop
 
+import circt.stage._
 import chisel3._
 import chisel3.stage._
 
@@ -63,13 +64,15 @@ object TopMain extends App {
     case (f, v) =>
       println(f + " = " + v)
   }
-  if (board == "sim") {
-    (new ChiselStage).execute(args, Seq(
-      ChiselGeneratorAnnotation(() => new SimTop))
-    )
-  } else {
-    (new ChiselStage).execute(args, Seq(
-      ChiselGeneratorAnnotation(() => new Top))
-    )
+  val generator = if (board == "sim") {
+    ChiselGeneratorAnnotation(() => new SimTop)
   }
+  else {
+    ChiselGeneratorAnnotation(() => new Top)
+  }
+  (new ChiselStage).execute(args, Seq(generator)
+    :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
+    :+ FirtoolOption("--disable-annotation-unknown")
+    :+ FirtoolOption("--lowering-options=disallowLocalVariables")
+  )
 }

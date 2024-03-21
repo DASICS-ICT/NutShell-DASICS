@@ -45,14 +45,12 @@ set_property is_global_include true [get_files $inc_files]
 
 # Add files for nutshell
 lappend src_files "[file normalize "${fpga_dir}/../build/TopMain.v"]" \
-                  "[file normalize "${fpga_dir}/../build/DifftestRunaheadEvent.v"]" \
-                  "[file normalize "${fpga_dir}/../build/DifftestRunaheadRedirectEvent.v"]"
+                  "[file normalize "${fpga_dir}/../build/DifftestRunaheadEvent.v"]" 
 
 add_files -norecurse -fileset sources_1 $src_files
 
 # Mark file type of difftest files as SystemVerilog to support DPI statements
 set_property file_type SystemVerilog -objects [get_files -of_objects [get_filesets sources_1] [list \
-  "*/DifftestRunaheadRedirectEvent.v" \
   "*/DifftestRunaheadEvent.v" \
 ]]
 
