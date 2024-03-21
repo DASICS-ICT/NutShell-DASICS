@@ -1,5 +1,5 @@
 [submodule "difftest"]
 	path = difftest
 	url = https://github.com/DASICS-ICT/difftest.git
-	branch = dev-nemu-difftest
+	branch = dasics-nutshell-v2
 
