@@ -25,7 +25,7 @@ CORE  ?= inorder# inorder  ooo  embedded
 
 MILL_ARGS_ALL  = $(MILL_ARGS)
 MILL_ARGS_ALL += --target-dir $(RTL_DIR) BOARD=$(BOARD) CORE=$(CORE)
-FPGA_ARGS =
+FPGA_ARGS = 
 
 ifneq ($(FIRTOOL),)
 MILL_ARGS_ALL += --firtool-binary-path $(FIRTOOL)

@@ -60,8 +60,8 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule{
     val difftest_commit = Module(new DifftestInstrCommit)
     difftest_commit.io.clock    := clock
     difftest_commit.io.coreid   := 0.U
-    difftest_commit.io.index    := 0.U
-    difftest_commit.io.special  := 0.U
+    difftest_commit.io.index    := DontCare
+    difftest_commit.io.special  := DontCare
     difftest_commit.io.valid    := RegNext(io.in.valid)
     difftest_commit.io.pc       := RegNext(SignExt(io.in.bits.decode.cf.pc, AddrBits))
     difftest_commit.io.instr    := RegNext(io.in.bits.decode.cf.instr)
