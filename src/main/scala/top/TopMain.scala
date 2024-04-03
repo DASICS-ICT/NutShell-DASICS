@@ -73,6 +73,6 @@ object TopMain extends App {
   (new ChiselStage).execute(args, Seq(generator)
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
-    :+ FirtoolOption("--lowering-options=disallowLocalVariables")
+    :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
   )
 }
