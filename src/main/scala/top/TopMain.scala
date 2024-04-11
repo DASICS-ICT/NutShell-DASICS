@@ -77,7 +77,7 @@ object TopMain extends App {
     :+ FirtoolOption("--disable-annotation-unknown")
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
     :+ FirtoolOption("-repl-seq-mem")
-    :+ FirtoolOption("--repl-seq-mem-file=TopMain.v.conf")  
+    :+ FirtoolOption("--repl-seq-mem-file=ext_mem.conf")  
     )
   }
 }

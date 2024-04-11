@@ -48,11 +48,11 @@ $(TOP_V): $(SCALA_FILE) # FOR FPGA RUNNING
 	sed -i '/\/\/ ----- 8< ----- FILE "firrtl_black_box_resource_files\.f" ----- 8< -----/,$$d' $@
 	sed -n -e '/\/\/ ----- 8< ----- FILE "\.\/DifftestRunaheadEvent\.v" ----- 8< -----/,$$p' $@ > ./build/DifftestRunaheadEvent.v
 	sed -i '/\/\/ ----- 8< ----- FILE "\.\/DifftestRunaheadEvent\.v" ----- 8< -----/,$$d' $@
-	sed -n -e '/\/\/ ----- 8< ----- FILE ".*\.conf" ----- 8< -----/,$$p' $@ > $@.conf
+	sed -n -e '/\/\/ ----- 8< ----- FILE "ext_mem\.conf" ----- 8< -----/,$$p' $@ > ./build/ext_mem.conf
 	sed -i '/\/\/ ----- 8< ----- FILE "metadata\/seq_mems\.json" ----- 8< -----/,$$d' $@
-	sed -i '1,2d' $@.conf
-	sed -i '$$d' $@.conf
-	./scripts/vlsi_mem_gen $@.conf >> $@
+	sed -i '1,2d' ./build/ext_mem.conf
+	sed -i '$$d' ./build/ext_mem.conf
+	./scripts/vlsi_mem_gen ./build/ext_mem.conf >> $@
 	@git log -n 1 >> .__head__
 	@git diff >> .__diff__
 	@sed -i 's/^/\/\// ' .__head__
