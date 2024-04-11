@@ -64,15 +64,20 @@ object TopMain extends App {
     case (f, v) =>
       println(f + " = " + v)
   }
-  val generator = if (board == "sim") {
-    ChiselGeneratorAnnotation(() => new SimTop)
-  }
-  else {
-    ChiselGeneratorAnnotation(() => new Top)
-  }
-  (new ChiselStage).execute(args, Seq(generator)
+  if (board == "sim") {
+    (new ChiselStage).execute(args, Seq(ChiselGeneratorAnnotation(() => new SimTop))
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
-  )
+    )
+  }
+  else {
+    (new ChiselStage).execute(args, Seq(ChiselGeneratorAnnotation(() => new Top))
+    :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
+    :+ FirtoolOption("--disable-annotation-unknown")
+    :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
+    :+ FirtoolOption("-repl-seq-mem")
+    :+ FirtoolOption("--repl-seq-mem-file=TopMain.v.conf")  
+    )
+  }
 }
