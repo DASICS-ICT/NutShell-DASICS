@@ -267,10 +267,11 @@ class LSU extends NutCoreModule with HasLSUConst {
   val dtlbFinish = WireInit(false.B)
   val dtlbPF = WireInit(false.B)
   val dtlbEnable = WireInit(false.B)
+  if (Settings.get("HasDTLB")) {
   BoringUtils.addSink(dtlbFinish, "DTLBFINISH")
   BoringUtils.addSink(dtlbPF, "DTLBPF")
   BoringUtils.addSink(dtlbEnable, "DTLBENABLE")
-
+  }
   val addr = Mux(atomReq || lrReq || scReq, src1, src1 + src2)
   val data = io.uopIn.decode.data.src2
   val size = Mux(LSUOpType.isAtom(func), Mux(atomWidthW, "b10".U, "b11".U), func(1,0))

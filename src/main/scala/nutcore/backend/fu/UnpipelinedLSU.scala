@@ -93,10 +93,11 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
     val dtlbFinish = WireInit(false.B)
     val dtlbPF = WireInit(false.B)
     val dtlbEnable = WireInit(false.B)
+    if (Settings.get("HasDTLB")) {
     BoringUtils.addSink(dtlbFinish, "DTLBFINISH")
     BoringUtils.addSink(dtlbPF, "DTLBPF")
     BoringUtils.addSink(dtlbEnable, "DTLBENABLE")
-
+    }
     // LSU control FSM state
     val s_idle :: s_exec :: s_load :: s_lr :: s_sc :: s_amo_l :: s_amo_a :: s_amo_s :: Nil = Enum(8)
 

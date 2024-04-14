@@ -19,6 +19,7 @@ package nutcore
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.BoringUtils
+import top.Settings
 
 import utils._
 import difftest._
@@ -177,8 +178,9 @@ class Decoder(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstr
   hasIntr := intrVec.orR
 
   val vmEnable = WireInit(false.B)
+  if (Settings.get("HasDTLB")) {
   BoringUtils.addSink(vmEnable, "DTLBENABLE")
-
+  }
   io.out.bits.cf.exceptionVec.map(_ := false.B)
   io.out.bits.cf.exceptionVec(illegalInstr) := (instrType === InstrN && !hasIntr) && io.in.valid
   io.out.bits.cf.exceptionVec(instrPageFault) := io.in.bits.exceptionVec(instrPageFault)
