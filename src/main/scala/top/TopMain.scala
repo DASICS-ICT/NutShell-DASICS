@@ -71,13 +71,20 @@ object TopMain extends App {
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
     )
   }
-  else {
+  else if (board == "pynq"){
     (new ChiselStage).execute(args, Seq(ChiselGeneratorAnnotation(() => new Top))
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
     :+ FirtoolOption("-repl-seq-mem")
     :+ FirtoolOption("--repl-seq-mem-file=ext_mem.conf")  
+    )
+  }
+  else {
+    (new ChiselStage).execute(args, Seq(ChiselGeneratorAnnotation(() => new Top))
+    :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
+    :+ FirtoolOption("--disable-annotation-unknown")
+    :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables") 
     )
   }
 }
