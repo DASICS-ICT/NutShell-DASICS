@@ -200,7 +200,7 @@ class BPU_embedded extends NutCoreModule {
   val flush = BoolStopWatch(io.flush, io.in.pc.valid, startHighPriority = true)
 
   // BTB
-  val NRbtb = 512
+  val NRbtb = 64
   val btbAddr = new TableAddr(log2Up(NRbtb))
   def btbEntry() = new Bundle {
     val tag = UInt(btbAddr.tagBits.W)
@@ -224,7 +224,7 @@ class BPU_embedded extends NutCoreModule {
   val phtTaken = RegEnable(pht.read(btbAddr.getIdx(io.in.pc.bits))(1), io.in.pc.valid)
 
   // RAS
-  val NRras = 16
+  val NRras = 8
   val ras = Mem(NRras, UInt(32.W))
   val sp = Counter(NRras)
   val rasTarget = RegEnable(ras.read(sp.value), io.in.pc.valid)
