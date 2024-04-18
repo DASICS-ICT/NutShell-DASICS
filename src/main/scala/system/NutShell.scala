@@ -141,13 +141,15 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
     BoringUtilsConnect(ila.WBUrfData  ,"ilaWBUrfData")
     BoringUtilsConnect(ila.InstrCnt   ,"ilaInstrCnt")
 
-    // Ignore ILA for Core 1; just prevent BoringUtils errors
-    // BoringUtils.addSink(dummy.WBUpc, "ilaWBUpc1")
-    // BoringUtils.addSink(dummy.WBUvalid, "ilaWBUvalid1")
-    // BoringUtils.addSink(dummy.WBUrfWen, "ilaWBUrfWen1")
-    // BoringUtils.addSink(dummy.WBUrfDest, "ilaWBUrfDest1")
-    // BoringUtils.addSink(dummy.WBUrfData, "ilaWBUrfData1")
-    // BoringUtils.addSink(dummy.InstrCnt, "ilaInstrCnt1")
+    if (HasDualCore){
+      // Ignore ILA for Core 1; just prevent BoringUtils errors
+      BoringUtils.addSink(dummy.WBUpc, "ilaWBUpc1")
+      BoringUtils.addSink(dummy.WBUvalid, "ilaWBUvalid1")
+      BoringUtils.addSink(dummy.WBUrfWen, "ilaWBUrfWen1")
+      BoringUtils.addSink(dummy.WBUrfDest, "ilaWBUrfDest1")
+      BoringUtils.addSink(dummy.WBUrfData, "ilaWBUrfData1")
+      BoringUtils.addSink(dummy.InstrCnt, "ilaInstrCnt1")
+    }
   }
 
   if (HasDualCore) {
