@@ -451,7 +451,9 @@ class LSExecUnit(implicit val p: NutCoreConfig) extends NutCoreModule {
   io.isMMIO := DontCare
 
   val isAMO = WireInit(false.B)
+  if (Settings.get("HasDTLB")) {
   BoringUtils.addSink(isAMO, "ISAMO2")
+  }
   BoringUtils.addSource(addr, "LSUEXECADDR")
 
   io.loadAddrMisaligned :=  valid && !isStore && !isAMO && !addrAligned

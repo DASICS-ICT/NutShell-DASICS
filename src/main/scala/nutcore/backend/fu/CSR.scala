@@ -845,8 +845,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val delegVecM = Mux(raiseIntr, mideleg, medeleg)
   val delegVecS = Mux(raiseIntr, sideleg, sedeleg)
   // val delegS = ((delegVecM & (1 << (causeNO & 0xf))) != 0) && (priviledgeMode < ModeM);
-  val delegS = (delegVecM(causeNO(5,0))) && (privilegeMode < ModeM)
-  val delegU = (delegVecS(causeNO(5,0))) && (privilegeMode < ModeS)
+  val delegS = (delegVecM(causeNO(log2Ceil(XLEN)-1,0))) && (privilegeMode < ModeM)
+  val delegU = (delegVecS(causeNO(log2Ceil(XLEN)-1,0))) && (privilegeMode < ModeS)
   val tvalWen = !(hasInstrPageFault || hasLoadPageFault || hasStorePageFault || hasLoadAddrMisaligned || hasStoreAddrMisaligned ||
     RaiseDUInstrFault || io.dasics_csr.lsuULibLoadFault || io.dasics_csr.lsuULibStoreFault ||
     RaiseDSInstrFault || io.dasics_csr.lsuSLibLoadFault || io.dasics_csr.lsuSLibStoreFault) || raiseIntr // in nutcore-riscv64, no exception will come together with PF
