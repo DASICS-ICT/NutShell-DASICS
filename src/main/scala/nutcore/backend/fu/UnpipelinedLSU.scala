@@ -17,7 +17,6 @@
 package nutcore
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import utils._
 import bus.simplebus._
@@ -32,6 +31,9 @@ class LSExecUnitIO extends FunctionUnitIO {
   val dtlbPF = Output(Bool()) // TODO: refactor it for new backend
   val loadAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
   val storeAddrMisaligned = Output(Bool()) // TODO: refactor it for new backend
+  // lock bus for atomic instructions
+  val lock = Input(Bool())
+  val unlock = Input(Bool())
 }
 
 class UnpipeLSUIO extends LSExecUnitIO {
@@ -41,7 +43,7 @@ class UnpipeLSUIO extends LSExecUnitIO {
   val dasics_lsu_deny            = Input(Bool())
 }
 
-class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
+class UnpipelinedLSU(implicit val p: NutCoreConfig) extends NutCoreModule with HasLSUConst {
   val io = IO(new UnpipeLSUIO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt, dtlbPF: Bool): UInt = {
@@ -49,6 +51,8 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
     this.src1 := src1
     this.src2 := src2
     this.func := func
+    this.io.lock := DontCare
+    this.io.unlock := DontCare
     dtlbPF := io.dtlbPF
     io.out.bits
   }
@@ -65,8 +69,9 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
     val scReq   = valid & LSUOpType.isSC(func)
     if (Settings.get("HasDTLB")) {
       BoringUtils.addSource(WireInit(amoReq), "ISAMO")
+      BoringUtils.addSource(WireInit(amoReq), "ISAMO2")
     }
-    BoringUtils.addSource(WireInit(amoReq), "ISAMO2")
+
 
     val aq = io.instr(26)
     val rl = io.instr(25)
@@ -138,6 +143,8 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
     lsExecUnit.io.in.bits.src2 := DontCare
     lsExecUnit.io.in.bits.func := DontCare
     lsExecUnit.io.wdata        := DontCare
+    lsExecUnit.io.lock         := false.B
+    lsExecUnit.io.unlock       := false.B
     io.out.valid               := false.B
     io.in.ready                := false.B
 
@@ -203,6 +210,7 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
         lsExecUnit.io.in.bits.src2 := DontCare
         lsExecUnit.io.in.bits.func := Mux(atomWidthD, LSUOpType.ld, LSUOpType.lw)
         lsExecUnit.io.wdata        := DontCare
+        lsExecUnit.io.lock         := true.B
         io.in.ready                := false.B
         io.out.valid               := false.B
         when(lsExecUnit.io.out.fire){
@@ -234,6 +242,7 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
         lsExecUnit.io.in.bits.src2 := DontCare
         lsExecUnit.io.in.bits.func := Mux(atomWidthD, LSUOpType.sd, LSUOpType.sw)
         lsExecUnit.io.wdata        := atomMemReg
+        lsExecUnit.io.unlock       := true.B
         io.in.ready                := lsExecUnit.io.out.fire
         io.out.valid               := lsExecUnit.io.out.fire
         when(lsExecUnit.io.out.fire){
@@ -302,7 +311,7 @@ class UnpipelinedLSU extends NutCoreModule with HasLSUConst {
     io.storeAddrMisaligned := lsExecUnit.io.storeAddrMisaligned
 }
 
-class LSExecUnit extends NutCoreModule {
+class LSExecUnit(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new LSExecUnitIO)
 
   val (valid, addr, func) = (io.in.valid, io.in.bits.src1, io.in.bits.func) // src1 is used as address
@@ -391,7 +400,10 @@ class LSExecUnit extends NutCoreModule {
     size = size, 
     wdata = reqWdata,
     wmask = reqWmask,
-    cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read))
+    cmd = Mux(isStore, SimpleBusCmd.write, SimpleBusCmd.read),
+    lock = io.lock,
+    unlock = io.unlock
+  )
   dmem.req.valid := valid && (state === s_idle) && !io.loadAddrMisaligned && !io.storeAddrMisaligned
   dmem.resp.ready := true.B
 

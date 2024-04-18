@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import utils._
 import bus.simplebus._
@@ -37,7 +36,7 @@ class ICacheUserBundle extends NutCoreBundle {
 }
 // Note: update ICacheUserBundleWidth when change ICacheUserBundle
 
-class IFU_ooo extends NutCoreModule with HasResetVector {
+class IFU_ooo(implicit val p: NutCoreConfig) extends NutCoreModule with HasResetVector {
   val io = IO(new Bundle {
 
     val imem = new SimpleBusUC(userBits = ICacheUserBundleWidth, addrBits = VAddrBits)
@@ -256,7 +255,7 @@ class IFU_ooo extends NutCoreModule with HasResetVector {
   BoringUtils.addSource(WireInit(io.flushVec.orR), "perfCntCondMifuFlush")
 }
 
-class IFU_embedded extends NutCoreModule with HasResetVector {
+class IFU_embedded(implicit val p: NutCoreConfig) extends NutCoreModule with HasResetVector {
   val io = IO(new Bundle {
     val imem = new SimpleBusUC(userBits = 64, addrBits = VAddrBits)
     val out = Decoupled(new CtrlFlowIO)
@@ -306,7 +305,7 @@ class IFU_embedded extends NutCoreModule with HasResetVector {
   BoringUtils.addSource(WireInit(io.flushVec.orR), "perfCntCondMifuFlush")
 }
 
-class IFU_inorder extends NutCoreModule with HasResetVector {
+class IFU_inorder(implicit val p: NutCoreConfig) extends NutCoreModule with HasResetVector {
   val io = IO(new Bundle {
 
     val imem = new SimpleBusUC(userBits = VAddrBits*2 + 4, addrBits = VAddrBits)

@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import utils._
 
@@ -34,7 +33,7 @@ class MOUIO extends FunctionUnitIO {
   val redirect = new RedirectIO
 }
 
-class MOU extends NutCoreModule {
+class MOU(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new MOUIO)
 
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)

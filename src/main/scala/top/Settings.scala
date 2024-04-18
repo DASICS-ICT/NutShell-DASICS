@@ -35,8 +35,10 @@ object DefaultSettings {
     "HasIcache" -> true,
     "MmodeOnly" -> false,
     "IsRV32" -> false,
+    "HasDualCore" -> false,
 
     "FPGAPlatform" -> false,
+    "PLPeriphery" -> false,
     "EnableILA" -> true,
     "EnableDebug" -> false,
     "EnableRVC" -> true,
@@ -47,6 +49,7 @@ object DefaultSettings {
 object PynqSettings {
   def apply() = Map(
     "FPGAPlatform" -> true,
+    "PLPeriphery" -> true,
     "NrExtIntr" -> 3,
     "ResetVector" -> 0x50000000L,
     "MemMapBase" -> 0x0000000010000000L,
@@ -92,6 +95,17 @@ object EmbededSettings {
     "MmodeOnly" -> true,
     "IsRV32" -> true,
     "EnableRVC" -> false
+  )
+}
+
+object DualSettings {
+  def apply(): Map[String, Boolean] = Map(
+    "HasPrefetch" -> false,
+    "HasDualCore" -> true
+  )
+
+  def uncached(): Map[String, Boolean] = apply() ++ Map(
+    "HasDcache" -> false
   )
 }
 

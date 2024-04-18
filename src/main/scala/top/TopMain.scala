@@ -55,6 +55,8 @@ object TopMain extends App {
     case "inorder"  => InOrderSettings()
     case "ooo"  => OOOSettings()
     case "embedded"=> EmbededSettings()
+    case "dual" => DualSettings()
+    case "dual-uncached" => DualSettings.uncached()
   } )
   s.foreach{Settings.settings += _} // add and overwrite DefaultSettings
   println("====== Settings = (" + board + ", " +  core + ") ======")

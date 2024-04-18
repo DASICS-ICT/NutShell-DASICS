@@ -18,7 +18,7 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
+
 import bus.simplebus._
 import bus.axi4._
 import utils._
@@ -233,7 +233,7 @@ sealed class CacheStage2(implicit val cacheConfig: CacheConfig) extends CacheMod
 }
 
 // writeback
-sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheModule {
+sealed class CacheStage3(implicit val cacheConfig: CacheConfig, val p: NutCoreConfig) extends CacheModule {
   class CacheStage3IO extends Bundle {
     val in = Flipped(Decoupled(new Stage2IO))
     val out = Decoupled(new SimpleBusRespBundle(userBits = userBits, idBits = idBits))
@@ -434,7 +434,8 @@ sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheMod
       io.out.bits.cmd := Mux(respToL1Last, SimpleBusCmd.readLast, SimpleBusCmd.readBurst)
     }.otherwise {
       io.out.bits.rdata := Mux(hit, dataRead, inRdataRegDemand)
-      io.out.bits.cmd := req.cmd
+      io.out.bits.cmd := Mux(io.in.bits.req.isReadSingle(), SimpleBusCmd.readLast,
+        Mux(io.in.bits.req.isWriteSingle(), SimpleBusCmd.writeResp, req.cmd))
     }
   } else {
     io.out.bits.rdata := Mux(hit, dataRead, inRdataRegDemand)
@@ -476,7 +477,7 @@ sealed class CacheStage3(implicit val cacheConfig: CacheConfig) extends CacheMod
   Debug((state === s_memReadResp) && io.mem.resp.fire, "[COUTR] cnt %x data %x tag %x idx %x waymask %b \n", readBeatCnt.value, io.mem.resp.bits.rdata, addr.tag, getMetaIdx(req.addr), io.in.bits.waymask)
 }
 
-class Cache(implicit val cacheConfig: CacheConfig) extends CacheModule with HasCacheIO {
+class Cache(implicit val cacheConfig: CacheConfig, val p: NutCoreConfig) extends CacheModule with HasCacheIO {
   // cpu pipeline
   val s1 = Module(new CacheStage1)
   val s2 = Module(new CacheStage2)
@@ -552,7 +553,7 @@ class Cache(implicit val cacheConfig: CacheConfig) extends CacheModule with HasC
   //s3.io.mem.dump(cacheName + ".mem")
 }
 
-class Cache_fake(implicit val cacheConfig: CacheConfig) extends CacheModule with HasCacheIO {
+class Cache_fake(implicit val cacheConfig: CacheConfig, val p: NutCoreConfig) extends CacheModule with HasCacheIO {
   val s_idle :: s_memReq :: s_memResp :: s_mmioReq :: s_mmioResp :: s_wait_resp :: Nil = Enum(6)
   val state = RegInit(s_idle)
 
@@ -595,6 +596,8 @@ class Cache_fake(implicit val cacheConfig: CacheConfig) extends CacheModule with
   val size = RegEnable(io.in.req.bits.size, io.in.req.fire)
   val wdata = RegEnable(io.in.req.bits.wdata, io.in.req.fire)
   val wmask = RegEnable(io.in.req.bits.wmask, io.in.req.fire)
+  val lock = RegEnable(io.in.req.bits.lock, io.in.req.fire)
+  val unlock = RegEnable(io.in.req.bits.unlock, io.in.req.fire)
 
   io.in.req.ready := (state === s_idle)
   io.in.resp.valid := (state === s_wait_resp) && (!needFlush)
@@ -612,7 +615,7 @@ class Cache_fake(implicit val cacheConfig: CacheConfig) extends CacheModule with
 
   io.out.mem.req.bits.apply(addr = reqaddr,
     cmd = cmd, size = size,
-    wdata = wdata, wmask = wmask)
+    wdata = wdata, wmask = wmask, lock = lock, unlock = unlock)
   io.out.mem.req.valid := (state === s_memReq)
   io.out.mem.resp.ready := true.B
   
@@ -665,7 +668,8 @@ class Cache_dummy(implicit val cacheConfig: CacheConfig) extends CacheModule wit
 }
 
 object Cache {
-  def apply(in: SimpleBusUC, mmio: Seq[SimpleBusUC], flush: UInt, empty: Bool, enable: Boolean = true)(implicit cacheConfig: CacheConfig) = {
+  def apply(in: SimpleBusUC, mmio: Seq[SimpleBusUC], flush: UInt, empty: Bool, enable: Boolean = true)
+           (implicit cacheConfig: CacheConfig, ncConfig: NutCoreConfig): SimpleBusC = {
     val cache = if (enable) Module(new Cache) 
                 else (if (Settings.get("IsRV32")) 
                         (if (cacheConfig.name == "dcache") Module(new Cache_fake) else Module(new Cache_dummy)) 
