@@ -19,6 +19,7 @@ package device
 import chisel3._
 import chisel3.util._
 import chisel3.util.experimental.BoringUtils
+import top.Settings
 
 import bus.axi4._
 import utils._
@@ -52,8 +53,12 @@ class AXI4CLINT(nrHart: Int = 1, sim: Boolean = false) extends AXI4SlaveModule(n
 
   if (sim) {
     val isWFI = WireInit(false.B)
-    BoringUtils.addSink(isWFI, "isWFI0")
-    when (isWFI) { mtime := mtime + 100000.U }
+      BoringUtils.addSink(isWFI, "isWFI0")
+      when (isWFI) { mtime := mtime + 100000.U }
+    if (nrHart==2){
+      val dummywfi = WireInit(false.B)
+      BoringUtils.addSink(dummywfi, "isWFI1")
+    }
   }
 
   val mapping: Map[Int, (UInt, UInt, UInt => UInt, UInt)] = Map(
