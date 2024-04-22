@@ -71,6 +71,7 @@ object TopMain extends App {
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
+    :+ FirtoolOption("--lower-memories")
     )
   }
   else if (board == "pynq"){
@@ -78,6 +79,7 @@ object TopMain extends App {
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
+    :+ FirtoolOption("--lower-memories")
     :+ FirtoolOption("-repl-seq-mem")
     :+ FirtoolOption("--repl-seq-mem-file=ext_mem.conf")  
     )
@@ -87,6 +89,7 @@ object TopMain extends App {
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables") 
+    :+ FirtoolOption("--lower-memories")
     )
   }
 }

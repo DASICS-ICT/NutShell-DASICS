@@ -64,13 +64,14 @@ class EmbeddedTLBMD(implicit val tlbConfig: TLBConfig) extends TlbModule {
   val setIdx = Mux(resetState, resetSet, writeSetIdx)
   val waymask = Mux(resetState, Fill(Ways, "b1".U), writeWayMask)
   val dataword = Mux(resetState, 0.U, writeData)
-  val wdata = VecInit(Seq.fill(Ways)(dataword))
+  val wdata = VecInit.fill(Ways)(dataword)
   
-  for (((d, m), i) <- wdata.zip(waymask.asBools).zipWithIndex) {
-    when (wen && m) {
-      tlbmd(setIdx)(i) := d
-    }
-  }
+  when (wen) { tlbmd.write(setIdx, wdata, waymask.asBools) }
+  // for (((d, m), i) <- wdata.zip(waymask.asBools).zipWithIndex) {
+  //   when (wen & m) {
+  //     tlbmd(setIdx)(i) := d
+  //   }
+  // }
   
   io.ready := !resetState
   def rready() = !resetState
