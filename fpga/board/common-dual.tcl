@@ -46,6 +46,12 @@ set_property is_global_include true [get_files $inc_files]
 # Add files for nutshell
 lappend src_files "[file normalize "${fpga_dir}/../build/TopMain.v"]" \
                   "[file normalize "${fpga_dir}/../build/DifftestRunaheadEvent.v"]" 
+# Add file for e1000
+lappend src_files "[file normalize "${fpga_dir}/resource/axi4e1000.v"]"
+# Add file for axi4sd
+lappend src_files "[file normalize "${fpga_dir}/resource/axi4sd.v"]"
+# Add file for oslabext
+lappend src_files "[file normalize "${fpga_dir}/resource/axi4oslabext.v"]"
 
 add_files -norecurse -fileset sources_1 $src_files
 
