@@ -24,7 +24,7 @@ object DefaultSettings {
     "MMIOSize" -> 0x0000000040000000L,
     "ResetVector" -> 0x80000000L,
     "NrExtIntr" -> 1,
-
+    "IsOSLAB"   -> false,
     "HasL2cache" -> true,
     "HasPrefetch" -> true,
     "EnableMultiIssue" -> false,
@@ -106,6 +106,9 @@ object DualSettings {
 
   def uncached(): Map[String, Boolean] = apply() ++ Map(
     "HasDcache" -> false
+  )
+  def oslab(): Map[String, Boolean] = uncached() ++ Map(
+    "IsOSLAB" -> true
   )
 }
 
