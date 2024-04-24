@@ -104,11 +104,9 @@ object DualSettings {
     "HasDualCore" -> true
   )
 
-  def uncached(): Map[String, Boolean] = apply() ++ Map(
+  def oslab(): Map[String, Boolean] = apply() ++ Map(
+    "IsOSLAB" -> true,
     "HasDcache" -> false
-  )
-  def oslab(): Map[String, Boolean] = uncached() ++ Map(
-    "IsOSLAB" -> true
   )
 }
 
