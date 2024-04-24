@@ -30,6 +30,7 @@ trait HasSoCParameter {
   val EnableILA = Settings.get("EnableILA")
   val HasL2cache = Settings.get("HasL2cache")
   val HasPrefetch = Settings.get("HasPrefetch")
+  val HasDualCore = Settings.get("HasDualCore")
 }
 
 class ILABundle extends NutCoreBundle {
@@ -79,7 +80,7 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
     } else xbar.io.out
     val l2Empty = Wire(Bool())
     l2cacheOut <> Cache(in = l2cacheIn, mmio = 0.U.asTypeOf(new SimpleBusUC) :: Nil, flush = "b00".U, empty = l2Empty, enable = true)(
-      CacheConfig(name = "l2cache", totalSize = 128, cacheLevel = 2))
+      CacheConfig(name = "l2cache", totalSize = 128, cacheLevel = 2), p)
     l2cacheOut.coh.resp.ready := true.B
     l2cacheOut.coh.req.valid := false.B
     l2cacheOut.coh.req.bits := DontCare
@@ -101,7 +102,8 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
   val addrSpace = List(
     (0x38000000L, 0x00010000L), // CLINT
     (0x3c000000L, 0x04000000L), // PLIC
-    (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")), // external devices
+    if (Settings.get("PLPeriphery")) { (0x70000000L, 0x90000000L) }
+    else { (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")) }, // external devices
   )
   val mmioXbar = Module(new SimpleBusCrossbar1toN(addrSpace))
   mmioXbar.io.in <> nutcore.io.mmio
@@ -110,25 +112,23 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
   if (p.FPGAPlatform) { io.mmio <> extDev.toAXI4() }
   else { io.mmio <> extDev }
 
-  val clint = Module(new AXI4CLINT(sim = !p.FPGAPlatform))
+  val clint = Module(new AXI4CLINT(nrHart = if (HasDualCore) 2 else 1, sim = !p.FPGAPlatform))
   clint.io.in <> mmioXbar.io.out(0).toAXI4Lite()
-  val mtipSync = clint.io.extra.get.mtip
-  val msipSync = clint.io.extra.get.msip
-  BoringUtils.addSource(mtipSync, "mtip")
-  BoringUtils.addSource(msipSync, "msip")
+  BoringUtils.bore(clint.io.extra.get.mtip(0), Seq(nutcore.mtipSync))
+  BoringUtils.bore(clint.io.extra.get.msip(0), Seq(nutcore.msipSync))
 
-  val plic = Module(new AXI4PLIC(nrIntr = Settings.getInt("NrExtIntr"), nrHart = 1))
+  val plic = Module(new AXI4PLIC(nrIntr = Settings.getInt("NrExtIntr"), nrHart = if (HasDualCore) 2 else 1))
   plic.io.in <> mmioXbar.io.out(1).toAXI4Lite()
-  plic.io.extra.get.intrVec := RegNext(RegNext(io.meip))
+  plic.io.extra.get.intrVec := RegNext(RegNext(if (Settings.get("IsOSLAB")) io.meip(0).asUInt else io.meip))
   val meipSync = plic.io.extra.get.meip(0)
-  BoringUtils.addSource(meipSync, "meip")
+  BoringUtils.bore(meipSync, Seq(nutcore.meipSync))
   
 
   // ILA
   if (p.FPGAPlatform) {
     def BoringUtilsConnect(sink: UInt, id: String) {
       val temp = WireInit(0.U(64.W))
-      BoringUtils.addSink(temp, id)
+      BoringUtils.addSink(temp, id + p.HartID.toString)
       sink := temp
     }
 
@@ -140,5 +140,69 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
     BoringUtilsConnect(ila.WBUrfDest  ,"ilaWBUrfDest")
     BoringUtilsConnect(ila.WBUrfData  ,"ilaWBUrfData")
     BoringUtilsConnect(ila.InstrCnt   ,"ilaInstrCnt")
+
+    if (HasDualCore){
+      // Ignore ILA for Core 1; just prevent BoringUtils errors
+      BoringUtils.addSink(dummy.WBUpc, "ilaWBUpc1")
+      BoringUtils.addSink(dummy.WBUvalid, "ilaWBUvalid1")
+      BoringUtils.addSink(dummy.WBUrfWen, "ilaWBUrfWen1")
+      BoringUtils.addSink(dummy.WBUrfDest, "ilaWBUrfDest1")
+      BoringUtils.addSink(dummy.WBUrfData, "ilaWBUrfData1")
+      BoringUtils.addSink(dummy.InstrCnt, "ilaInstrCnt1")
+    }
+  }
+
+  if (HasDualCore) {
+    val p1 = p.copy(HartID = 1)
+    val nutcore1 = Module(new NutCore()(p1))
+    val cohMg1 = Module(new CoherenceManager)
+    val xbar1 = Module(new SimpleBusCrossbarNto1(2))
+    cohMg1.io.in <> nutcore1.io.imem.mem
+    nutcore1.io.dmem.coh <> cohMg1.io.out.coh
+    xbar1.io.in(0) <> cohMg1.io.out.mem
+    xbar1.io.in(1) <> nutcore1.io.dmem.mem
+
+    nutcore1.io.frontend := DontCare
+    nutcore1.io.frontend.req.valid := false.B
+
+    val memport1 = xbar1.io.out.toMemPort()
+    memport1.resp.bits.data := DontCare
+    memport1.resp.valid := DontCare
+    memport1.req.ready := DontCare
+
+    // Dual Core automatically disables L2 cache
+    val ccc = Module(new CrossCoreCoherence(2))
+    ccc.io.in(0) <> xbar.io.out
+    ccc.io.in(1) <> xbar1.io.out
+
+    val cccMem = if (HasL2cache) {
+      val l2cacheOut = Wire(new SimpleBusC)
+      val l2cacheIn = ccc.io.out
+      val l2Empty = Wire(Bool())
+      l2cacheOut <> Cache(
+        in = l2cacheIn, mmio = 0.U.asTypeOf(new SimpleBusUC) :: Nil, flush = "b00".U, empty = l2Empty
+      )(CacheConfig(name = "l2cache", totalSize = 128, cacheLevel = 2), p)
+      l2cacheOut.coh.resp.ready := true.B
+      l2cacheOut.coh.req.valid := false.B
+      l2cacheOut.coh.req.bits := DontCare
+      l2cacheOut.mem
+    } else {
+      ccc.io.out
+    }
+
+    memAddrMap.io.in <> cccMem
+
+    nutcore1.io.imem.coh.resp.ready := true.B
+    nutcore1.io.imem.coh.req.valid := false.B
+    nutcore1.io.imem.coh.req.bits := DontCare
+
+    val mmioBus = Module(new SimpleBusCrossbarNto1(2))
+    mmioBus.io.in(0) <> nutcore.io.mmio
+    mmioBus.io.in(1) <> nutcore1.io.mmio
+    mmioXbar.io.in <> mmioBus.io.out
+
+    BoringUtils.bore(clint.io.extra.get.mtip(1), Seq(nutcore1.mtipSync))
+    BoringUtils.bore(clint.io.extra.get.msip(1), Seq(nutcore1.msipSync))
+    BoringUtils.bore(plic.io.extra.get.meip(1), Seq(nutcore1.meipSync))
   }
 }

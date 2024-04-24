@@ -104,8 +104,7 @@ static char *SD_File;
 
 static UINT FileSize = (FILE_SIZE_MB * 1024 * 1024);
 
-#define SHARED_BUF_BASE 	0x5FFFFE00
-#define PHY_SHARED_BUF_BASE	0x1FFFFE00
+#define SHARED_BUF_BASE		0x70008000
 
 #define SDIO_CMD_STATUS_OFFSET		0
 #define SDIO_CMD_SECT_BASE_OFFSET	1
@@ -160,7 +159,7 @@ int main(void)
 		rv_dram_base += 0x100000;		//section size
 	}
 	//set uncached non-shareable section attribute to shared buffer
-	rv_dram_base = (INTPTR)0x5FF00000;
+	rv_dram_base = (INTPTR)0x70000000;
 	Xil_SetTlbAttributes(rv_dram_base, sec_attr);
 
 	/* Load RV_BOOT.bin file from SD card to RV_DRAM_ENTRY */
@@ -301,11 +300,9 @@ int FfsSdPolledExample(void)
 void RvDiskIOHelper(void)
 {
 	volatile unsigned int *rv_shared_buf = (void *)SHARED_BUF_BASE;
-	volatile unsigned int *rv_reset_reg = (void *)RV_RESET_REG;
+	// volatile unsigned int *rv_reset_reg = (void *)RV_RESET_REG;
 	volatile unsigned int *gpio_base = (void *)GPIO_BASE;
-	unsigned int *phy_shared_buf = (void *)(PHY_SHARED_BUF_BASE);
-
-	phy_shared_buf[SDIO_CMD_STATUS_OFFSET] = 0;
+	rv_shared_buf[SDIO_CMD_STATUS_OFFSET] = 0;
 
 	/* release RISC-V reset signal */
 	// *rv_reset_reg = 0x0;

@@ -18,7 +18,7 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
+
 import bus.simplebus._
 import bus.axi4._
 import utils._
@@ -64,20 +64,21 @@ class EmbeddedTLBMD(implicit val tlbConfig: TLBConfig) extends TlbModule {
   val setIdx = Mux(resetState, resetSet, writeSetIdx)
   val waymask = Mux(resetState, Fill(Ways, "b1".U), writeWayMask)
   val dataword = Mux(resetState, 0.U, writeData)
-  val wdata = VecInit(Seq.fill(Ways)(dataword))
+  val wdata = VecInit.fill(Ways)(dataword)
   
-  for (((d, m), i) <- wdata.zip(waymask.asBools).zipWithIndex) {
-    when (wen && m) {
-      tlbmd(setIdx)(i) := d
-    }
-  }
+  when (wen) { tlbmd.write(setIdx, wdata, waymask.asBools) }
+  // for (((d, m), i) <- wdata.zip(waymask.asBools).zipWithIndex) {
+  //   when (wen & m) {
+  //     tlbmd(setIdx)(i) := d
+  //   }
+  // }
   
   io.ready := !resetState
   def rready() = !resetState
   def wready() = !resetState
 }
 
-class EmbeddedTLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasTLBIO {
+class EmbeddedTLB(implicit val tlbConfig: TLBConfig, val ncConfig: NutCoreConfig) extends TlbModule with HasTLBIO {
 
   val satp = WireInit(0.U(XLEN.W))
   BoringUtils.addSink(satp, "CSRSATP")
@@ -137,6 +138,8 @@ class EmbeddedTLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasT
     io.out.req.bits.wmask := io.in.req.bits.wmask
     io.out.req.bits.wdata := io.in.req.bits.wdata
     io.out.req.bits.user.map(_ := io.in.req.bits.user.getOrElse(0.U))
+    io.out.req.bits.lock := io.in.req.bits.lock
+    io.out.req.bits.unlock := io.in.req.bits.unlock
   }.otherwise {
     if (tlbname == "dtlb") { io.out.req <> tlbEmpty.io.out}
     else { io.out.req <> tlbExec.io.out }
@@ -175,7 +178,7 @@ class EmbeddedTLB(implicit val tlbConfig: TLBConfig) extends TlbModule with HasT
   Debug("satp:%x flush:%d cacheEmpty:%d instrPF:%d loadPF:%d storePF:%d \n", satp, io.flush, io.cacheEmpty, io.ipf, io.csrMMU.loadPF, io.csrMMU.storePF)
 }
 
-class EmbeddedTLBExec(implicit val tlbConfig: TLBConfig) extends TlbModule{
+class EmbeddedTLBExec(implicit val tlbConfig: TLBConfig, val ncConfig: NutCoreConfig) extends TlbModule{
   val io = IO(new Bundle {
     val in = Flipped(Decoupled(new SimpleBusReqBundle(userBits = userBits, addrBits = VAddrBits)))
     val out = Decoupled(new SimpleBusReqBundle(userBits = userBits))
@@ -420,7 +423,7 @@ class EmbeddedTLB_fake(implicit val tlbConfig: TLBConfig) extends TlbModule with
 
 
 object EmbeddedTLB {
-  def apply(in: SimpleBusUC, mem: SimpleBusUC, flush: Bool, csrMMU: MMUIO, enable: Boolean = true)(implicit tlbConfig: TLBConfig) = {
+  def apply(in: SimpleBusUC, mem: SimpleBusUC, flush: Bool, csrMMU: MMUIO, enable: Boolean = true)(implicit tlbConfig: TLBConfig,  ncConfig: NutCoreConfig) = {
     val tlb = if (enable) {
       Module(new EmbeddedTLB)
     } else {

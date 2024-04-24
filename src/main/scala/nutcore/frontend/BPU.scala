@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import utils._
 import top.Settings
@@ -58,7 +57,7 @@ class BPUUpdateReq extends NutCoreBundle {
 }
 
 // nextline predicter generates NPC from current NPC in 1 cycle
-class BPU_ooo extends NutCoreModule {
+class BPU_ooo(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new Bundle {
     val in = new Bundle { val pc = Flipped(Valid((UInt(VAddrBits.W)))) }
     val out = new RedirectIO 
@@ -190,7 +189,7 @@ class BPU_ooo extends NutCoreModule {
   // ROCKET uses a 32 bit instline, and its IDU logic is more simple than this implentation.
 }
 
-class BPU_embedded extends NutCoreModule {
+class BPU_embedded(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new Bundle {
     val in = new Bundle { val pc = Flipped(Valid((UInt(32.W)))) }
     val out = new RedirectIO
@@ -277,7 +276,7 @@ class BPU_embedded extends NutCoreModule {
   io.out.rtype := 0.U
 }
 
-class BPU_inorder extends NutCoreModule {
+class BPU_inorder(implicit val p: NutCoreConfig) extends NutCoreModule {
   val io = IO(new Bundle {
     val in = new Bundle { val pc = Flipped(Valid((UInt(VAddrBits.W)))) }
     val out = new RedirectIO

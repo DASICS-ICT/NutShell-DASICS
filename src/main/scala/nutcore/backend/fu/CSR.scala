@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import utils._
 import top.Settings
@@ -319,7 +318,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val mvendorid = RegInit(UInt(XLEN.W), 0.U) // this is a non-commercial implementation
   val marchid = RegInit(UInt(XLEN.W), 0.U) // return 0 to indicate the field is not implemented
   val mimpid = RegInit(UInt(XLEN.W), ImpID.U) // provides a unique encoding of the version of the processor implementation
-  val mhartid = RegInit(UInt(XLEN.W), 0.U) // the hardware thread running the code
+  val mhartid = RegInit(UInt(XLEN.W), p.HartID.U) // the hardware thread running the code
   val mstatus = RegInit(UInt(XLEN.W), "h00001800".U)  // FIXME: sxl and uxl is not set ???
   // val mstatus = RegInit(UInt(XLEN.W), "h8000c0100".U)
   // mstatus Value Table
@@ -1113,7 +1112,6 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
         }
       }
     }
-
     // for differential testing
     val difftest = Module(new DifftestCSRState)
     difftest.io.clock := clock
@@ -1213,6 +1211,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
 
   } else {
     if (!p.FPGAPlatform) {
+      
       BoringUtils.addSource(readWithScala(perfCntList("Mcycle")._1), "simCycleCnt")
       BoringUtils.addSource(readWithScala(perfCntList("Minstret")._1), "simInstrCnt")
     } else {

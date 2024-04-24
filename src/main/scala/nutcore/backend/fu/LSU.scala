@@ -17,7 +17,6 @@
 package nutcore
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import utils._
 import bus.simplebus._
@@ -203,7 +202,7 @@ class AtomALU extends NutCoreModule {
 }
 
 // Out Of Order Load/Store Unit
-class LSU extends NutCoreModule with HasLSUConst {
+class LSU(implicit val p: NutCoreConfig) extends NutCoreModule with HasLSUConst {
   val io = IO(new LSUIO)
   val (valid, src1, src2, func) = (io.in.valid, io.in.bits.src1, io.in.bits.src2, io.in.bits.func)
   def access(valid: Bool, src1: UInt, src2: UInt, func: UInt, dtlbPF: Bool): UInt = {

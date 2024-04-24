@@ -63,7 +63,7 @@ abstract class AXI4SlaveModule[T <: AXI4Lite, B <: Data](_type :T = new AXI4, _e
       (beatCnt.value, axi4.r.bits.last)
 
     case axi4lite: AXI4Lite =>
-      raddr := axi4lite.ar.bits.addr
+      raddr := RegEnable(axi4lite.ar.bits.addr, axi4lite.ar.fire)
       (0.U, true.B)
   }
 
