@@ -120,7 +120,7 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
 
   val plic = Module(new AXI4PLIC(nrIntr = Settings.getInt("NrExtIntr"), nrHart = if (HasDualCore) 2 else 1))
   plic.io.in <> mmioXbar.io.out(1).toAXI4Lite()
-  plic.io.extra.get.intrVec := RegNext(RegNext(if (Settings.get("IsOSLAB")) io.meip(0).asUInt else io.meip))
+  plic.io.extra.get.intrVec := RegNext(RegNext(if (Settings.get("IsOSLAB")) Cat(io.meip(2),0.U(2.W)) else io.meip))
   val meipSync = plic.io.extra.get.meip(0)
   BoringUtils.bore(meipSync, Seq(nutcore.meipSync))
   
