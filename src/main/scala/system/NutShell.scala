@@ -39,6 +39,7 @@ class ILABundle extends NutCoreBundle {
   val WBUrfWen = UInt(1.W)
   val WBUrfDest = UInt(5.W)
   val WBUrfData = UInt(XLEN.W)
+  val WBUInstr = UInt(64.W)
   val InstrCnt = UInt(64.W)
 }
 
@@ -135,19 +136,23 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
     val dummy = WireInit(0.U.asTypeOf(new ILABundle))
     val ila = io.ila.getOrElse(dummy)
     BoringUtilsConnect(ila.WBUpc      ,"ilaWBUpc")
+    BoringUtilsConnect(ila.WBUInstr   ,"ilaWBUInstr")
     BoringUtilsConnect(ila.WBUvalid   ,"ilaWBUvalid")
     BoringUtilsConnect(ila.WBUrfWen   ,"ilaWBUrfWen")
     BoringUtilsConnect(ila.WBUrfDest  ,"ilaWBUrfDest")
     BoringUtilsConnect(ila.WBUrfData  ,"ilaWBUrfData")
+
     BoringUtilsConnect(ila.InstrCnt   ,"ilaInstrCnt")
 
     if (HasDualCore){
       // Ignore ILA for Core 1; just prevent BoringUtils errors
       BoringUtils.addSink(dummy.WBUpc, "ilaWBUpc1")
+      BoringUtils.addSink(dummy.WBUInstr, "ilaWBUInstr1")
       BoringUtils.addSink(dummy.WBUvalid, "ilaWBUvalid1")
       BoringUtils.addSink(dummy.WBUrfWen, "ilaWBUrfWen1")
       BoringUtils.addSink(dummy.WBUrfDest, "ilaWBUrfDest1")
       BoringUtils.addSink(dummy.WBUrfData, "ilaWBUrfData1")
+
       BoringUtils.addSink(dummy.InstrCnt, "ilaInstrCnt1")
     }
   }

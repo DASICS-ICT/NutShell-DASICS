@@ -290,10 +290,10 @@ proc create_hier_cell_rv_system { parentCell nameHier } {
   # Create instance: system_ila_0, and set properties
   set system_ila_0 [ create_bd_cell -type ip -vlnv xilinx.com:ip:system_ila:1.1 system_ila_0 ]
   set_property -dict [ list \
-   CONFIG.C_BRAM_CNT {0.5} \
+   CONFIG.C_BRAM_CNT {1} \
    CONFIG.C_MON_TYPE {NATIVE} \
    CONFIG.C_NUM_MONITOR_SLOTS {1} \
-   CONFIG.C_NUM_OF_PROBES {6} \
+   CONFIG.C_NUM_OF_PROBES {7} \
  ] $system_ila_0
 
   # Create instance: util_vector_logic_0, and set properties
@@ -312,6 +312,7 @@ proc create_hier_cell_rv_system { parentCell nameHier } {
   connect_bd_intf_net -intf_net axi_protocol_convert_1_M_AXI [get_bd_intf_pins axi_protocol_convert_0/S_AXI] [get_bd_intf_pins axi_protocol_convert_1/M_AXI]
 
   # Create port connections
+  connect_bd_net -net NutShell_0_io_ila_WBUInstr [get_bd_pins NutShell_0/io_ila_WBUInstr] [get_bd_pins system_ila_0/probe6]
   connect_bd_net -net NutShell_0_io_ila_InstrCnt [get_bd_pins NutShell_0/io_ila_InstrCnt] [get_bd_pins system_ila_0/probe5]
   connect_bd_net -net NutShell_0_io_ila_WBUpc [get_bd_pins NutShell_0/io_ila_WBUpc] [get_bd_pins system_ila_0/probe0]
   connect_bd_net -net NutShell_0_io_ila_WBUrfData [get_bd_pins NutShell_0/io_ila_WBUrfData] [get_bd_pins system_ila_0/probe4]
