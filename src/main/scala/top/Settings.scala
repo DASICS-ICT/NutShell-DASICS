@@ -24,7 +24,6 @@ object DefaultSettings {
     "MMIOSize" -> 0x0000000040000000L,
     "ResetVector" -> 0x80000000L,
     "NrExtIntr" -> 1,
-    "IsOSLAB"   -> false,
     "HasL2cache" -> true,
     "HasPrefetch" -> true,
     "EnableMultiIssue" -> false,
@@ -36,7 +35,6 @@ object DefaultSettings {
     "MmodeOnly" -> false,
     "IsRV32" -> false,
     "HasDualCore" -> false,
-
     "FPGAPlatform" -> false,
     "PLPeriphery" -> false,
     "EnableILA" -> true,
@@ -100,12 +98,11 @@ object EmbededSettings {
 object DualSettings {
   def apply(): Map[String, Boolean] = Map(
     "HasPrefetch" -> false,
-    "HasDualCore" -> true,
-    "PLPeriphery" -> true
+    "HasDualCore" -> true
   )
 
   def oslab(): Map[String, Boolean] = apply() ++ Map(
-    "IsOSLAB" -> true,
+    "PLPeriphery" -> true,
     "HasDcache" -> false
   )
 }
