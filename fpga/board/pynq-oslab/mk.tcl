@@ -13,5 +13,5 @@ set src_files [list \
 #  "[file normalize "${script_dir}/constr/vga.xdc"]" \
 #]
 
-source ${script_dir}/../common-dual.tcl
+source ${script_dir}/../common-oslab.tcl
 source ${script_dir}/../run.tcl
