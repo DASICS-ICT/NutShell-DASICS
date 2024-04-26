@@ -57,7 +57,7 @@ class AXI4PLIC(nrIntr: Int, nrHart: Int) extends AXI4SlaveModule(new AXI4Lite, n
 
   val inHandle = RegInit(0.U.asTypeOf(Vec(nrIntr + 1, Bool())))
   def completionFn(wdata: UInt) = {
-    inHandle(wdata(31,0)) := false.B
+    inHandle(wdata(31,0)(log2Ceil(nrIntr+1)-1,0)) := false.B
     0.U
   }
 
@@ -65,7 +65,7 @@ class AXI4PLIC(nrIntr: Int, nrHart: Int) extends AXI4SlaveModule(new AXI4Lite, n
   val claimCompletionMap = claimCompletion.zipWithIndex.map {
     case (r, hart) => {
       val addr = 0x200004 + hart * 0x1000
-      when (in.r.fire && (getOffset(raddr) === addr.U)) { inHandle(r) := true.B }
+      when (in.r.fire && (getOffset(raddr) === addr.U)) { inHandle(r(log2Ceil(nrIntr+1)-1,0)) := true.B }
       RegMap(addr, r, completionFn)
     }
   }.toMap

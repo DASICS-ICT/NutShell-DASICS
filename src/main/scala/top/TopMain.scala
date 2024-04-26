@@ -55,6 +55,8 @@ object TopMain extends App {
     case "inorder"  => InOrderSettings()
     case "ooo"  => OOOSettings()
     case "embedded"=> EmbededSettings()
+    case "dual" => DualSettings()
+    case "oslab" => DualSettings.oslab()
   } )
   s.foreach{Settings.settings += _} // add and overwrite DefaultSettings
   println("====== Settings = (" + board + ", " +  core + ") ======")
@@ -69,15 +71,25 @@ object TopMain extends App {
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
     :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
+    :+ FirtoolOption("--lower-memories")
+    )
+  }
+  else if (board == "pynq"){
+    (new ChiselStage).execute(args, Seq(ChiselGeneratorAnnotation(() => new Top))
+    :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
+    :+ FirtoolOption("--disable-annotation-unknown")
+    :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
+    :+ FirtoolOption("--lower-memories")
+    :+ FirtoolOption("-repl-seq-mem")
+    :+ FirtoolOption("--repl-seq-mem-file=ext_mem.conf")  
     )
   }
   else {
     (new ChiselStage).execute(args, Seq(ChiselGeneratorAnnotation(() => new Top))
     :+ CIRCTTargetAnnotation(CIRCTTarget.Verilog)
     :+ FirtoolOption("--disable-annotation-unknown")
-    :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables")
-    :+ FirtoolOption("-repl-seq-mem")
-    :+ FirtoolOption("--repl-seq-mem-file=ext_mem.conf")  
+    :+ FirtoolOption("--lowering-options=noAlwaysComb,disallowPackedArrays,disallowLocalVariables") 
+    :+ FirtoolOption("--lower-memories")
     )
   }
 }

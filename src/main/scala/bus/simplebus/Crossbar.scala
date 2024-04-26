@@ -82,7 +82,7 @@ class SimpleBusCrossbar1toN(addressSpace: List[(Long, Long)]) extends Module {
   }
 }
 
-class SimpleBusCrossbarNto1(n: Int, userBits:Int = 0) extends Module {
+class SimpleBusCrossbarNto1(n: Int, userBits:Int = 0, supportsLock: Boolean = false) extends Module {
   val io = IO(new Bundle {
     val in = Flipped(Vec(n, new SimpleBusUC(userBits)))
     val out = new SimpleBusUC(userBits)
@@ -92,9 +92,10 @@ class SimpleBusCrossbarNto1(n: Int, userBits:Int = 0) extends Module {
   val state = RegInit(s_idle)
 
   val lockWriteFun = ((x: SimpleBusReqBundle) => x.isWrite() && x.isBurst())
-  val inputArb = Module(new LockingArbiter(chiselTypeOf(io.in(0).req.bits), n, 8, Some(lockWriteFun)))
+  val inputArb = Module(new LockingRRArbiter(chiselTypeOf(io.in(0).req.bits), n, 8, Some(lockWriteFun)))
   (inputArb.io.in zip io.in.map(_.req)).map{ case (arb, in) => arb <> in }
-  val thisReq = inputArb.io.out
+  val thisReq: DecoupledIO[SimpleBusReqBundle] = Wire(chiselTypeOf(io.in(0).req))
+  thisReq <> inputArb.io.out
   assert(!(thisReq.valid && !thisReq.bits.isRead() && !thisReq.bits.isWrite()))
   val inflightSrc = RegInit(0.U(log2Up(n).W))
 
@@ -110,12 +111,35 @@ class SimpleBusCrossbarNto1(n: Int, userBits:Int = 0) extends Module {
     r.ready := l.ready
   }}
 
+  // lock bus for atomic instructions
+  val lockReg: Bool = RegInit(false.B)
+  val locker: UInt = Reg(UInt(log2Up(n).W))
+  if (supportsLock) {
+    when (lockReg) {  // block other input reqs except the locker
+      inputArb.io.in.foreach(_.valid := false.B)
+      inputArb.io.in(locker).valid := io.in(locker).req.valid
+      thisReq <> io.in(locker).req
+      inputArb.io.out.ready := false.B
+    }
+  }
+
   switch (state) {
     is (s_idle) {
       when (thisReq.fire) {
         inflightSrc := inputArb.io.chosen
         when (thisReq.bits.isRead()) { state := s_readResp }
         .elsewhen (thisReq.bits.isWriteLast() || thisReq.bits.isWriteSingle()) { state := s_writeResp }
+        if (supportsLock) {
+          when (thisReq.bits.lock) {
+            lockReg := true.B
+            locker := inputArb.io.chosen
+            // printf("[Crossbar] Locked by %d...\n", inputArb.io.chosen)
+          }.elsewhen(thisReq.bits.unlock) {
+            lockReg := false.B
+            // printf("[Crossbar] Unlocked by %d...\n", locker)
+          }
+          when (lockReg) { inflightSrc := locker }
+        }
       }
     }
     is (s_readResp) { when (io.out.resp.fire && io.out.resp.bits.isReadLast()) { state := s_idle } }

@@ -523,6 +523,7 @@ class ROB(implicit val p: NutCoreConfig) extends NutCoreModule with HasInstrType
   } else {
     BoringUtils.addSource(retireATerm, "ilaWBUvalid")
     BoringUtils.addSource(SignExt(decode(ringBufferTail)(0).cf.pc, AddrBits), "ilaWBUpc")
+    BoringUtils.addSource(SignExt(decode(ringBufferTail)(0).cf.instr, AddrBits), "ilaWBUInstr")
     BoringUtils.addSource(io.wb(0).rfWen, "ilaWBUrfWen")
     BoringUtils.addSource(io.wb(0).rfDest, "ilaWBUrfDest")
     BoringUtils.addSource(io.wb(0).rfData, "ilaWBUrfData")

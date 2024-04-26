@@ -39,6 +39,7 @@ vivado: $(XPR_FILE)
 
 clean-pynq-vivado:
 	rm -rf board/pynq/build
+	rm -rf board/pynq-oslab/build
 
 clean-boot:
 	rm -rf $(BOOT_BUILD)

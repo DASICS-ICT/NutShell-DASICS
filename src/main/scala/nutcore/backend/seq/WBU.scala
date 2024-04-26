@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 import utils._
 import difftest._
 
@@ -92,6 +91,7 @@ class WBU(implicit val p: NutCoreConfig) extends NutCoreModule{
   } else {
     BoringUtils.addSource(io.in.valid, "ilaWBUvalid")
     BoringUtils.addSource(io.in.bits.decode.cf.pc, "ilaWBUpc")
+    BoringUtils.addSource(io.in.bits.decode.cf.instr, "ilaWBUInstr")
     BoringUtils.addSource(io.wb.rfWen, "ilaWBUrfWen")
     BoringUtils.addSource(io.wb.rfDest, "ilaWBUrfDest")
     BoringUtils.addSource(io.wb.rfData, "ilaWBUrfData")

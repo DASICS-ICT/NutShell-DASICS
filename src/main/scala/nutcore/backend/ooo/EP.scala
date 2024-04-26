@@ -30,7 +30,7 @@ class ExecutionPipeline extends NutCoreModule {
   io.out.bits.store := false.B
 }
 
-class ALUEP extends ExecutionPipeline {
+class ALUEP(implicit val p: NutCoreConfig) extends ExecutionPipeline {
   val alu = Module(new ALU())
   alu.io.in.valid := io.in.valid
   alu.io.in.bits.src1 := io.in.bits.decode.data.src1

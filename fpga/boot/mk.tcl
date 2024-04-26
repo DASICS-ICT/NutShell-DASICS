@@ -24,7 +24,7 @@ set build_dir ${script_dir}/build/${project_name}
 set device_tree_repo_path "../../../device-tree-xlnx"
 
 switch -regexp -- $brd {
-  zedboard|pynq {
+  zedboard|pynq|pynq-oslab {
     set processor ps7_cortexa9_0
     set brd_version zedboard
     set arch zynq

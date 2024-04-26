@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import bus.simplebus._
 import bus.axi4._
@@ -46,7 +45,7 @@ trait HasNutCoreParameter {
   val EnablePerfCnt = false
   val ExceptionTypes = 32
   val InterruptTypes = 12
-  val ImpID = 0xda220002L // mimpid CSR, for implementation version: DASICS UCAS-OS 2022v2
+  val ImpID = 0xda22dc05L // mimpid CSR, for implementation version: DASICS UCAS-OS 2022v5 (Dual Core)
   // Parameter for Argo's OoO backend
   val EnableMultiIssue = Settings.get("EnableMultiIssue")
   val EnableOutOfOrderExec = Settings.get("EnableOutOfOrderExec")
@@ -91,7 +90,8 @@ abstract class NutCoreBundle extends Bundle with HasNutCoreParameter with HasNut
 case class NutCoreConfig (
   FPGAPlatform: Boolean = true,
   EnableDebug: Boolean = Settings.get("EnableDebug"),
-  EnhancedLog: Boolean = true 
+  EnhancedLog: Boolean = true,
+  HartID: Int = 0 // Change this for other harts
 )
 // Enable EnhancedLog will slow down simulation, 
 // but make it possible to control debug log using emu parameter
@@ -102,6 +102,10 @@ object AddressSpace extends HasNutCoreParameter {
   def mmio = List(
     (0x30000000L, 0x10000000L),  // internal devices, such as CLINT and PLIC
     (Settings.getLong("MMIOBase"), Settings.getLong("MMIOSize")) // external devices
+  ) ++ (
+    if (Settings.get("PLPeriphery")) {
+      List((0x70000000L, 0x10000000L))  // external devices implemented in PL
+    } else { List() }
   )
 
   def isMMIO(addr: UInt) = mmio.map(range => {
@@ -140,7 +144,8 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
     val itlb = TLB(in = frontend.io.imem, mem = dmemXbar.io.in(2), flush = frontend.io.flushVec(0) | frontend.io.bpFlush, csrMMU = backend.io.memMMU.imem)(TLBConfig(name = "itlb", userBits = ICacheUserBundleWidth, totalEntry = 4))
     frontend.io.ipf := itlb.io.ipf
     io.imem <> Cache(in = itlb.io.out, mmio = mmioXbar.io.in.take(1), flush = Fill(2, frontend.io.flushVec(0) | frontend.io.bpFlush), empty = itlb.io.cacheEmpty)(
-      CacheConfig(ro = true, name = "icache", userBits = ICacheUserBundleWidth)
+      CacheConfig(ro = true, name = "icache", userBits = ICacheUserBundleWidth),
+      p
     )
     
     val dtlb = TLB(in = backend.io.dtlb, mem = dmemXbar.io.in(1), flush = frontend.io.flushVec(3), csrMMU = backend.io.memMMU.dmem)(TLBConfig(name = "dtlb", userBits = DCacheUserBundleWidth, totalEntry = 64))
@@ -150,13 +155,13 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
     if (EnableVirtualMemory) {
       dmemXbar.io.in(3) <> backend.io.dmem
       io.dmem <> Cache(in = dmemXbar.io.out, mmio = mmioXbar.io.in.drop(1), flush = "b00".U, empty = dtlb.io.cacheEmpty, enable = HasDcache)(
-        CacheConfig(ro = false, name = "dcache", userBits = DCacheUserBundleWidth, idBits = 4))
+        CacheConfig(ro = false, name = "dcache", userBits = DCacheUserBundleWidth, idBits = 4), p)
     } else {
       dmemXbar.io.in(1) := DontCare
       dmemXbar.io.in(3) := DontCare
       dmemXbar.io.out := DontCare
       io.dmem <> Cache(in = backend.io.dmem, mmio = mmioXbar.io.in.drop(1), flush = "b00".U, empty = dtlb.io.cacheEmpty, enable = HasDcache)(
-        CacheConfig(ro = false, name = "dcache", userBits = DCacheUserBundleWidth))
+        CacheConfig(ro = false, name = "dcache", userBits = DCacheUserBundleWidth), p)
     }
 
     // Make DMA access through L1 DCache to keep coherence
@@ -174,14 +179,25 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
     val mmioXbar = Module(new SimpleBusCrossbarNto1(2))
     val dmemXbar = Module(new SimpleBusCrossbarNto1(4))
 
-    val itlb = EmbeddedTLB(in = frontend.io.imem, mem = dmemXbar.io.in(1), flush = frontend.io.flushVec(0) | frontend.io.bpFlush, csrMMU = backend.io.memMMU.imem, enable = HasITLB)(TLBConfig(name = "itlb", userBits = ICacheUserBundleWidth, totalEntry = 4))
+    val itlb = EmbeddedTLB(
+      in = frontend.io.imem, mem = dmemXbar.io.in(1), flush = frontend.io.flushVec(0) | frontend.io.bpFlush,
+      csrMMU = backend.io.memMMU.imem, enable = HasITLB
+    )(TLBConfig(name = "itlb", userBits = ICacheUserBundleWidth, totalEntry = 4), p)
     frontend.io.ipf := itlb.io.ipf
-    io.imem <> Cache(in = itlb.io.out, mmio = mmioXbar.io.in.take(1), flush = Fill(2, frontend.io.flushVec(0) | frontend.io.bpFlush), empty = itlb.io.cacheEmpty, enable = HasIcache)(CacheConfig(ro = true, name = "icache", userBits = ICacheUserBundleWidth))
+    io.imem <> Cache(
+      in = itlb.io.out, mmio = mmioXbar.io.in.take(1), flush = Fill(2, frontend.io.flushVec(0) | frontend.io.bpFlush),
+      empty = itlb.io.cacheEmpty, enable = HasIcache
+    )(CacheConfig(ro = true, name = "icache", userBits = ICacheUserBundleWidth), p)
     
     // dtlb
-    val dtlb = EmbeddedTLB(in = backend.io.dmem, mem = dmemXbar.io.in(2), flush = false.B, csrMMU = backend.io.memMMU.dmem, enable = HasDTLB)(TLBConfig(name = "dtlb", totalEntry = 64))
+    val dtlb = EmbeddedTLB(
+      in = backend.io.dmem, mem = dmemXbar.io.in(2), flush = false.B, csrMMU = backend.io.memMMU.dmem, enable = HasDTLB
+    )(TLBConfig(name = "dtlb", totalEntry = 64), p)
     dmemXbar.io.in(0) <> dtlb.io.out
-    io.dmem <> Cache(in = dmemXbar.io.out, mmio = mmioXbar.io.in.drop(1), flush = "b00".U, empty = dtlb.io.cacheEmpty, enable = HasDcache)(CacheConfig(ro = false, name = "dcache"))
+    io.dmem <> Cache(
+      in = dmemXbar.io.out, mmio = mmioXbar.io.in.drop(1), flush = "b00".U,
+      empty = dtlb.io.cacheEmpty, enable = HasDcache
+    )(CacheConfig(ro = false, name = "dcache"), p)
 
     // redirect
     frontend.io.redirect <> backend.io.redirect
@@ -192,6 +208,14 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
 
     io.mmio <> mmioXbar.io.out
   }
+
+  // Hook up CLINT and PLIC interrupts
+  val mtipSync: Bool = WireInit(Bool(), DontCare)
+  val msipSync: Bool = WireInit(Bool(), DontCare)
+  val meipSync: Bool = WireInit(Bool(), DontCare)
+  BoringUtils.addSource(mtipSync, "mtip")
+  BoringUtils.addSource(msipSync, "msip")
+  BoringUtils.addSource(meipSync, "meip")
 
   Debug("------------------------ BACKEND ------------------------\n")
 }

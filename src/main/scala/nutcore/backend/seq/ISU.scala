@@ -18,7 +18,6 @@ package nutcore
 
 import chisel3._
 import chisel3.util._
-import chisel3.util.experimental.BoringUtils
 
 import utils._
 import difftest._
@@ -108,7 +107,7 @@ class ISU(implicit val p: NutCoreConfig) extends NutCoreModule with HasRegFilePa
   BoringUtils.addSource(WireInit(io.out.valid && !io.out.fire), "perfCntCondMexuBusy")
   BoringUtils.addSource(WireInit(io.out.fire), "perfCntCondISUIssue")
 
-  if (!p.FPGAPlatform) {
+  if (!p.FPGAPlatform && p.HartID == 0) {
     val difftest = Module(new DifftestArchIntRegState)
     difftest.io.clock  := clock
     difftest.io.coreid := 0.U // TODO
