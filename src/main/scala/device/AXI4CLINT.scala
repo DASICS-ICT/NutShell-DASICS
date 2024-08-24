@@ -41,7 +41,7 @@ class AXI4CLINT(nrHart: Int = 1, sim: Boolean = false) extends AXI4SlaveModule(n
     case (r, hart) => MaskedRegMap(0x0 + hart * 4, r)
   }.toMap
 
-  val clk = (if (!sim) 40 /* 40MHz / 1000000 */ else 10000)
+  val clk = (if (!sim) 50 /* 50MHz / 1000000 */ else 10000)
   val freq = RegInit(clk.U(16.W))
   val inc = RegInit(1.U(16.W))
 
