@@ -47,6 +47,7 @@ trait HasCSRConst {
   val Utval         = 0x043
   val Uip           = 0x044
 
+  val Utimer        = 0x045
   // User Floating-Point CSRs (not implemented)
   val Fflags        = 0x001
   val Frm           = 0x002
@@ -146,17 +147,17 @@ trait HasCSRConst {
   def ModeS     = 0x1.U
   def ModeU     = 0x0.U
 
-  def IRQ_UEIP  = 0
-  def IRQ_SEIP  = 1
-  def IRQ_MEIP  = 3
+  def IRQ_USIP  = 0
+  def IRQ_SSIP  = 1
+  def IRQ_MSIP  = 3
 
   def IRQ_UTIP  = 4
   def IRQ_STIP  = 5
   def IRQ_MTIP  = 7
 
-  def IRQ_USIP  = 8
-  def IRQ_SSIP  = 9
-  def IRQ_MSIP  = 11
+  def IRQ_UEIP  = 8
+  def IRQ_SEIP  = 9
+  def IRQ_MEIP  = 11
 
   val IntPriority = Seq(
     IRQ_MEIP, IRQ_MSIP, IRQ_MTIP,
@@ -390,7 +391,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val stvec = RegInit(UInt(XLEN.W), 0.U)
   // val sie = RegInit(0.U(XLEN.W))
   val sieMask = "h222".U & mideleg
-  val sipMask  = "h222".U & mideleg
+  val sipMask = "h222".U & mideleg
   // val satp = RegInit(UInt(XLEN.W), "h8000000000087fbe".U)
   val satp = RegInit(UInt(XLEN.W), 0.U)
   val sepc = RegInit(UInt(XLEN.W), 0.U)
@@ -431,6 +432,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val utvec = RegInit(UInt(XLEN.W), 0.U)
   val utval = RegInit(UInt(XLEN.W), 0.U)
 
+  val utimer = RegInit(UInt(XLEN.W), 0.U)
   // User-Level DASICS CSRs
   val dasicsBoundWMask = (~(7.U(64.W))).asUInt //TODO
 
@@ -492,7 +494,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val userMapping = if (!HasNExtension) Nil else Map(
     // User Trap Setup
     MaskedRegMap(Ustatus, mstatus, ustatusWmask, MaskedRegMap.NoSideEffect, ustatusRmask),
-    MaskedRegMap(Uie, mie, uieMask, MaskedRegMap.Unwritable, uieMask),
+    MaskedRegMap(Uie, mie, uieMask, MaskedRegMap.NoSideEffect, uieMask),
     MaskedRegMap(Utvec, utvec),
 
     // User Trap Handling
@@ -500,7 +502,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(Uepc, uepc),
     MaskedRegMap(Ucause, ucause),
     MaskedRegMap(Utval, utval),
-    MaskedRegMap(Uip, mip.asUInt, uipMask, MaskedRegMap.Unwritable, uipMask)
+    MaskedRegMap(Uip, mip.asUInt, uipMask, MaskedRegMap.Unwritable, uipMask),
+    MaskedRegMap(Utimer, utimer)
 
     // User Floating-Point CSRs (not implemented)
     // MaskedRegMap(Fflags, fflags),
@@ -544,7 +547,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
     MaskedRegMap(Mstatus, mstatus, "hffffffffffffffff".U, mstatusUpdateSideEffect),
     MaskedRegMap(Misa, misa), // now MXL, EXT is not changeable
     MaskedRegMap(Medeleg, medeleg),
-    MaskedRegMap(Mideleg, mideleg, "h222".U),
+    MaskedRegMap(Mideleg, mideleg, "h333".U),
     MaskedRegMap(Mie, mie),
     MaskedRegMap(Mtvec, mtvec),
     MaskedRegMap(Mcounteren, mcounteren),
@@ -599,7 +602,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   // Fix Mip/Sip write
   val fixMapping = Map(
     MaskedRegMap(Mip, mipReg.asUInt, mipFixMask),
-    MaskedRegMap(Sip, mipReg.asUInt, sipMask, MaskedRegMap.NoSideEffect, sipMask)
+    MaskedRegMap(Sip, mipReg.asUInt, sipMask, MaskedRegMap.NoSideEffect, sipMask),
+    MaskedRegMap(Uip, mipReg.asUInt, uipMask, MaskedRegMap.NoSideEffect, uipMask)
   )
   val rdataFix = Wire(UInt(XLEN.W))
   val wdataFix = LookupTree(func, List(
@@ -778,6 +782,15 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   mipWire.t.m := mtip
   mipWire.e.m := meip
   mipWire.s.m := msip
+
+  val ueip = WireInit(false.B)
+  BoringUtils.addSink(ueip, "ueip")
+
+  when (utimer > 1.U){
+    utimer := utimer - 1.U
+  }
+
+  mipWire.e.u := ueip | (utimer === 1.U)
 
   // SEIP from PLIC is only used to raise interrupt,
   // but it is not stored in the CSR

@@ -217,5 +217,8 @@ class NutCore(implicit val p: NutCoreConfig) extends NutCoreModule {
   BoringUtils.addSource(msipSync, "msip")
   BoringUtils.addSource(meipSync, "meip")
 
+  val ueipSync: Bool = WireInit(Bool(), DontCare)
+  BoringUtils.addSource(ueipSync,"ueip")
+
   Debug("------------------------ BACKEND ------------------------\n")
 }

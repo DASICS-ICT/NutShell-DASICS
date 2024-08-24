@@ -25,6 +25,7 @@ import utils._
 class PlicIO(val nrIntr: Int, val nrHart: Int) extends Bundle {
   val intrVec = Input(UInt(nrIntr.W))
   val meip = Output(Vec(nrHart, Bool()))
+  val ueip = Output(Vec(nrHart, Bool()))
 }
 
 class AXI4PLIC(nrIntr: Int, nrHart: Int) extends AXI4SlaveModule(new AXI4Lite, new PlicIO(nrIntr, nrHart)) {
@@ -91,4 +92,5 @@ class AXI4PLIC(nrIntr: Int, nrHart: Int) extends AXI4SlaveModule(new AXI4Lite, n
   in.r.bits.data := Fill(2, rdata)
 
   io.extra.get.meip.zipWithIndex.map { case (ip, hart) => ip := claimCompletion(hart) =/= 0.U }
+  io.extra.get.ueip.zipWithIndex.map { case (ip, hart) => ip := 0.U }
 }

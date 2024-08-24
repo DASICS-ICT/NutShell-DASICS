@@ -123,7 +123,9 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
   plic.io.extra.get.intrVec := RegNext(RegNext(if (Settings.get("PLPeriphery")) Cat(io.meip(2),0.U(2.W)) else io.meip))
   val meipSync = plic.io.extra.get.meip(0)
   BoringUtils.bore(meipSync, Seq(nutcore.meipSync))
-  
+
+  val ueipSync = plic.io.extra.get.ueip(0)
+  BoringUtils.bore(ueipSync, Seq(nutcore.ueipSync))
 
   // ILA
   if (p.FPGAPlatform) {
@@ -209,5 +211,7 @@ class NutShell(implicit val p: NutCoreConfig) extends Module with HasSoCParamete
     BoringUtils.bore(clint.io.extra.get.mtip(1), Seq(nutcore1.mtipSync))
     BoringUtils.bore(clint.io.extra.get.msip(1), Seq(nutcore1.msipSync))
     BoringUtils.bore(plic.io.extra.get.meip(1), Seq(nutcore1.meipSync))
+
+    BoringUtils.bore(plic.io.extra.get.ueip(1), Seq(nutcore1.ueipSync))
   }
 }
