@@ -340,7 +340,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   // | hpp  | 00 |
   // | spp  | 0 |
   // | pie  | 0000 |
-  // | ie   | 0000 | uie hardlinked to 0, as N ext is not implemented
+  // | ie   | 0000 |
   val mstatusStruct = mstatus.asTypeOf(new MstatusStruct)
   def mstatusUpdateSideEffect(mstatus: UInt): UInt = {
     val mstatusOld = WireInit(mstatus.asTypeOf(new MstatusStruct))
@@ -390,8 +390,8 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   // Sstatus Read Mask = (SSTATUS_WMASK | (0xf << 13) | (1ull << 63) | (3ull << 32))
   val stvec = RegInit(UInt(XLEN.W), 0.U)
   // val sie = RegInit(0.U(XLEN.W))
-  val sieMask = "h222".U & mideleg
-  val sipMask = "h222".U & mideleg
+  val sieMask = "h333".U & mideleg
+  val sipMask = "h333".U & mideleg
   // val satp = RegInit(UInt(XLEN.W), "h8000000000087fbe".U)
   val satp = RegInit(UInt(XLEN.W), 0.U)
   val sepc = RegInit(UInt(XLEN.W), 0.U)
@@ -798,12 +798,15 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val mipRaiseIntr = WireInit(mip)
   mipRaiseIntr.e.s := mip.e.s | seip
 
-  val ideleg =  (mideleg & mipRaiseIntr.asUInt)
-  def priviledgedEnableDetect(x: Bool): Bool = Mux(x, ((privilegeMode === ModeS) && mstatusStruct.ie.s) || (privilegeMode < ModeS),
-                                   ((privilegeMode === ModeM) && mstatusStruct.ie.m) || (privilegeMode < ModeM))
+  val ideleg_u =  (mideleg & sideleg & mipRaiseIntr.asUInt)
+  val ideleg_s =  (mideleg & ~sideleg & mipRaiseIntr.asUInt)
+  def priviledgedEnableDetect(x: Bool, y: Bool): Bool = Mux(x,((privilegeMode === ModeU) && mstatusStruct.ie.u),
+                                   Mux(y, ((privilegeMode === ModeS) && mstatusStruct.ie.s) || (privilegeMode < ModeS),
+                                   ((privilegeMode === ModeM) && mstatusStruct.ie.m) || (privilegeMode < ModeM)))
 
   val intrVecEnable = Wire(Vec(InterruptTypes, Bool()))
-  intrVecEnable.zip(ideleg.asBools).map{case(x,y) => x := priviledgedEnableDetect(y)}
+  intrVecEnable.zip(ideleg_u.asBools).zip(ideleg_s.asBools).map{case((x,y),z) => x := priviledgedEnableDetect(y,z)}
+  
   val intrVec = mie(11,0) & mipRaiseIntr.asUInt & intrVecEnable.asUInt
   BoringUtils.addSource(WireInit(intrVec), "intrVecIDU")
   // val intrNO = PriorityEncoder(intrVec)
