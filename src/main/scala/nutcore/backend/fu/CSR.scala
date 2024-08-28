@@ -379,7 +379,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   // Superviser-Level CSRs
 
   // val sstatus = RegInit(UInt(XLEN.W), "h00000000".U)
-  val sstatusWmask = "hc6122".U
+  val sstatusWmask = "hc6133".U
   // Sstatus Write Mask
   // -------------------------------------------------------
   //    19           9   5     2
