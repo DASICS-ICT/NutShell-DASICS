@@ -209,9 +209,8 @@ trait HasExceptionNO {
       loadAccessFault,
 
       // Customized DASICS exceptions
-      dasicsSInstrAccessFault, dasicsSLoadAccessFault, dasicsSStoreAccessFault,
-      dasicsUInstrAccessFault, dasicsULoadAccessFault, dasicsUStoreAccessFault,
-      dasicsUEcallFault, dasicsSEcallFault
+      dasicsSInstrAccessFault, dasicsSLoadAccessFault, dasicsSStoreAccessFault, dasicsSEcallFault,
+      dasicsUInstrAccessFault, dasicsULoadAccessFault, dasicsUStoreAccessFault, dasicsUEcallFault
   )
 }
 
