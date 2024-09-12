@@ -785,7 +785,7 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val ueip = WireInit(false.B)
   BoringUtils.addSink(ueip, "ueip")
 
-  when (utimer > 1.U){
+  when (privilegeMode === ModeU && utimer > 1.U){
     utimer := utimer - 1.U
   }
 
