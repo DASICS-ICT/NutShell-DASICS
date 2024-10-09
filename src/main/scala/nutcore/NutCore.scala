@@ -71,8 +71,23 @@ trait HasDasicsConst {
   // 8 bytes of granularity
   val DasicsGrain         = 8
   val DasicsGrainBit      = log2Ceil(DasicsGrain)
-  def MCFG_UCLS = 0x3
-  def MCFG_SCLS = 0x2
+
+  // DasicsFReason Exception number
+  val DasicsFReasonWidth  = 3
+  def noDasicsFault = 0b000.U
+  def EcallDasicsFault = 0b001.U
+  def LoadDasicsFault  = 0b010.U
+  def StoreDasicsFault = 0b011.U
+  def JumpDasicsFault  = 0b100.U
+
+  def MCFG_CSFT = 0x9
+  def MCFG_CSLT = 0x8
+  def MCFG_CSST = 0x7
+  def MCFG_CSET = 0x6
+  def MCFG_CUFT = 0X5
+  def MCFG_CULT = 0x4
+  def MCFG_CUST = 0X3
+  def MCFG_CUET = 0x2
   def MCFG_UENA = 0x1
   def MCFG_SENA = 0x0
 

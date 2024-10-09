@@ -22,6 +22,7 @@ import chisel3.util._
 import utils._
 import top.Settings
 import difftest._
+import nutcore.FuType.csr
 
 
 object CSROpType {
@@ -69,6 +70,7 @@ trait HasCSRConst {
   val DasicsMaincallEntry = 0x8B0
   val DasicsReturnPC = 0x8B1
   val DasicsActiveZoneReturnPC = 0x8B2
+  val DasicsFReason = 0x8B3
 
   // Supervisor DASICS Protection
   val DasicsUMainCfg     = 0x9E0
@@ -183,16 +185,18 @@ trait HasExceptionNO {
   def storePageFault      = 15
 
   // Customized exceptions added by DASICS mechanism
-  def dasicsUInstrAccessFault = 24
-  def dasicsSInstrAccessFault = 25
+  // def dasicsUInstrAccessFault = 24
+  // def dasicsSInstrAccessFault = 25
 
-  def dasicsULoadAccessFault  = 26
-  def dasicsSLoadAccessFault  = 27
+  // def dasicsULoadAccessFault  = 26
+  // def dasicsSLoadAccessFault  = 27
 
-  def dasicsUStoreAccessFault = 28
-  def dasicsSStoreAccessFault = 29
-  def dasicsUEcallFault = 30
-  def dasicsSEcallFault = 31
+  // def dasicsUStoreAccessFault = 28
+  // def dasicsSStoreAccessFault = 29
+  // def dasicsUEcallFault = 30
+  // def dasicsSEcallFault = 31
+  def dasicsUCheckFault = 18
+  def dasicsSCheckFault = 19
 
   val ExcPriority = Seq(
       breakPoint, // TODO: different BP has different priority
@@ -209,8 +213,9 @@ trait HasExceptionNO {
       loadAccessFault,
 
       // Customized DASICS exceptions
-      dasicsSInstrAccessFault, dasicsSLoadAccessFault, dasicsSStoreAccessFault, dasicsSEcallFault,
-      dasicsUInstrAccessFault, dasicsULoadAccessFault, dasicsUStoreAccessFault, dasicsUEcallFault
+      // dasicsSInstrAccessFault, dasicsSLoadAccessFault, dasicsSStoreAccessFault, dasicsSEcallFault,
+      // dasicsUInstrAccessFault, dasicsULoadAccessFault, dasicsUStoreAccessFault, dasicsUEcallFault
+      dasicsSCheckFault, dasicsUCheckFault
   )
 }
 
@@ -365,9 +370,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsSMainBoundHi = RegInit(UInt(XLEN.W), 0.U)
   val dasicsSMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
-  val dasicsSMainCfgWMask = "h3".U(XLEN.W)
+  val dasicsSMainCfgWMask = "h3ff".U(XLEN.W)
   val dasicsSMainCfgRMask = dasicsSMainCfgWMask
-  val dasicsSMainCfgClsMask = 1.U(XLEN.W) << MCFG_SCLS.U
+  //val dasicsSMainCfgClsMask = 1.U(XLEN.W) << MCFG_SCLS.U
 
   val dasicsMachineMapping = Map(
     MaskedRegMap(DasicsSMainCfg, dasicsMainCfg, dasicsSMainCfgWMask, MaskedRegMap.NoSideEffect, dasicsSMainCfgRMask),
@@ -406,9 +411,9 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsUMainBoundHi = RegInit(UInt(XLEN.W), 0.U)
   val dasicsUMainBoundLo = RegInit(UInt(XLEN.W), 0.U)
 
-  val dasicsUMainCfgWMask = "h2".U(XLEN.W)
+  val dasicsUMainCfgWMask = "h3e".U(XLEN.W)
   val dasicsUMainCfgRMask = dasicsUMainCfgWMask
-  val dasicsUMainCfgClsMask = 1.U(XLEN.W) << MCFG_UCLS.U
+  //val dasicsUMainCfgClsMask = 1.U(XLEN.W) << MCFG_UCLS.U
 
   val dasicsSupervisorMapping = Map(
     MaskedRegMap(DasicsUMainCfg, dasicsMainCfg, dasicsUMainCfgWMask, MaskedRegMap.NoSideEffect, dasicsUMainCfgRMask),
@@ -451,13 +456,15 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   val dasicsReturnPC = RegInit(UInt(XLEN.W), 0.U)
   val dasicsActiveZoneReturnPC = RegInit(UInt(XLEN.W), 0.U)
   val dasicsMaincallEntry    = RegInit(UInt(XLEN.W), 0.U)
+  val dasicsFReason = RegInit(UInt(DasicsFReasonWidth.W), 0.U)
 
   val dasicsUserMapping = Map(
     MaskedRegMap(DasicsLibCfgBase, dasicsLibCfgBase),
     MaskedRegMap(DasicsJumpCfgBase, dasicsJumpCfgBase),
     MaskedRegMap(DasicsMaincallEntry, dasicsMaincallEntry),
     MaskedRegMap(DasicsReturnPC, dasicsReturnPC),
-    MaskedRegMap(DasicsActiveZoneReturnPC, dasicsActiveZoneReturnPC)
+    MaskedRegMap(DasicsActiveZoneReturnPC, dasicsActiveZoneReturnPC),
+    MaskedRegMap(DasicsFReason, dasicsFReason)
   ) ++ dasicsLibBoundLoMapping ++ dasicsLibBoundHiMapping ++ dasicsJumpBoundLoMapping ++ dasicsJumpBoundHiMapping
 
   val dasicsMapping = dasicsMachineMapping ++ dasicsSupervisorMapping ++ dasicsUserMapping
@@ -616,25 +623,25 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   MaskedRegMap.generate(fixMapping, addr, rdataFix, wen && !isIllegalAccess, wdataFix)
 
   // DASICS -- Act when the S-CLS or U-CLS bit of dasicsMainCfg is set
-  when ((addr === DasicsSMainCfg.U || addr === DasicsUMainCfg.U) &&
-    wen && ((wdata & (dasicsSMainCfgClsMask | dasicsUMainCfgClsMask)) =/= 0.U))  // Reset all dasics lib registers
-  {
-    when ((wdata & (dasicsSMainCfgClsMask)) =/= 0.U)
-    {
-      dasicsUMainBoundHi := 0.U
-      dasicsUMainBoundLo := 0.U
-    }
+  // when ((addr === DasicsSMainCfg.U || addr === DasicsUMainCfg.U) &&
+  //   wen && ((wdata & (dasicsSMainCfgClsMask | dasicsUMainCfgClsMask)) =/= 0.U))  // Reset all dasics lib registers
+  // {
+  //   when ((wdata & (dasicsSMainCfgClsMask)) =/= 0.U)
+  //   {
+  //     dasicsUMainBoundHi := 0.U
+  //     dasicsUMainBoundLo := 0.U
+  //   }
 
-    dasicsLibBoundHiList.foreach(reg => reg := 0.U)
-    dasicsLibBoundLoList.foreach(reg => reg := 0.U)
-    dasicsJumpBoundHiList.foreach(reg => reg := 0.U)
-    dasicsJumpBoundLoList.foreach(reg => reg := 0.U)
-    dasicsLibCfgBase := 0.U
-    dasicsJumpCfgBase := 0.U
-    dasicsMaincallEntry := 0.U
-    dasicsReturnPC := 0.U
-    dasicsActiveZoneReturnPC := 0.U
-  }
+  //   dasicsLibBoundHiList.foreach(reg => reg := 0.U)
+  //   dasicsLibBoundLoList.foreach(reg => reg := 0.U)
+  //   dasicsJumpBoundHiList.foreach(reg => reg := 0.U)
+  //   dasicsJumpBoundLoList.foreach(reg => reg := 0.U)
+  //   dasicsLibCfgBase := 0.U
+  //   dasicsJumpCfgBase := 0.U
+  //   dasicsMaincallEntry := 0.U
+  //   dasicsReturnPC := 0.U
+  //   dasicsActiveZoneReturnPC := 0.U
+  // }
 
   when (io.dasics_alu.RedirectValid && io.dasics_csr.inTrustedZone && !io.dasics_csr.targetInTrustedZone && io.dasics_alu.IsDasicscall){  // Jump/branch from trusted to untrusted
     dasicsReturnPC := io.cfIn.pc + 4.U
@@ -825,14 +832,44 @@ class CSR(implicit val p: NutCoreConfig) extends NutCoreModule with HasCSRConst{
   csrExceptionVec(illegalInstr) := (isIllegalAddr || isIllegalAccess) && wen && !io.isBackendException // Trigger an illegal instr exception when unimplemented csr is being read/written or not having enough priviledge
   csrExceptionVec(loadPageFault) := hasLoadPageFault
   csrExceptionVec(storePageFault) := hasStorePageFault
-  csrExceptionVec(dasicsUInstrAccessFault) := RaiseDUInstrFault
-  csrExceptionVec(dasicsSInstrAccessFault) := RaiseDSInstrFault
-  csrExceptionVec(dasicsULoadAccessFault) := io.dasics_csr.lsuULibLoadFault
-  csrExceptionVec(dasicsSLoadAccessFault) := io.dasics_csr.lsuSLibLoadFault
-  csrExceptionVec(dasicsUStoreAccessFault) := io.dasics_csr.lsuULibStoreFault
-  csrExceptionVec(dasicsSStoreAccessFault) := io.dasics_csr.lsuSLibStoreFault
-  csrExceptionVec(dasicsUEcallFault) := privilegeMode === ModeU && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone
-  csrExceptionVec(dasicsSEcallFault) := privilegeMode === ModeS && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone
+
+  // Dasics Exceptions handler logic
+
+  // csrExceptionVec(dasicsUInstrAccessFault) := RaiseDUInstrFault
+  // csrExceptionVec(dasicsSInstrAccessFault) := RaiseDSInstrFault
+  // csrExceptionVec(dasicsULoadAccessFault) := io.dasics_csr.lsuULibLoadFault
+  // csrExceptionVec(dasicsSLoadAccessFault) := io.dasics_csr.lsuSLibLoadFault
+  // csrExceptionVec(dasicsUStoreAccessFault) := io.dasics_csr.lsuULibStoreFault
+  // csrExceptionVec(dasicsSStoreAccessFault) := io.dasics_csr.lsuSLibStoreFault
+  // csrExceptionVec(dasicsUEcallFault) := privilegeMode === ModeU && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone && !io.dasics_csr.isCloseUEcallFault
+  // csrExceptionVec(dasicsSEcallFault) := privilegeMode === ModeS && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone && !io.dasics_csr.isCloseSEcallFault
+  val dasicsUInstrAccessFault = RaiseDUInstrFault
+  val dasicsSInstrAccessFault = RaiseDSInstrFault
+  val dasicsULoadAccessFault = io.dasics_csr.lsuULibLoadFault
+  val dasicsSLoadAccessFault = io.dasics_csr.lsuSLibLoadFault
+  val dasicsUStoreAccessFault = io.dasics_csr.lsuULibStoreFault
+  val dasicsSStoreAccessFault = io.dasics_csr.lsuSLibStoreFault
+  val dasicsUEcallFault = privilegeMode === ModeU && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone && !io.dasics_csr.isCloseUEcallFault
+  val dasicsSEcallFault = privilegeMode === ModeS && io.in.valid && isEcall && !io.dasics_csr.inTrustedZone && !io.dasics_csr.isCloseSEcallFault
+  val dasicsUFault = dasicsUInstrAccessFault || dasicsULoadAccessFault || dasicsUStoreAccessFault || dasicsUEcallFault
+  val dasicsSFault = dasicsSInstrAccessFault || dasicsSLoadAccessFault || dasicsSStoreAccessFault || dasicsSEcallFault
+
+  csrExceptionVec(dasicsUCheckFault) := dasicsUFault
+  csrExceptionVec(dasicsSCheckFault) := dasicsSFault 
+  when (dasicsSFault) {
+    dasicsFReason :=  Mux(dasicsSInstrAccessFault, JumpDasicsFault,
+                      Mux(dasicsSLoadAccessFault, LoadDasicsFault,
+                      Mux(dasicsSStoreAccessFault, StoreDasicsFault,
+                      Mux(dasicsSEcallFault, EcallDasicsFault, noDasicsFault))))
+  } .elsewhen(dasicsUFault) {
+    dasicsFReason :=  Mux(dasicsUInstrAccessFault, JumpDasicsFault,
+                      Mux(dasicsULoadAccessFault, LoadDasicsFault,
+                      Mux(dasicsUStoreAccessFault, StoreDasicsFault,
+                      Mux(dasicsUEcallFault, EcallDasicsFault, noDasicsFault))))
+  } .otherwise {
+    dasicsFReason := noDasicsFault
+  }
+  
   val iduExceptionVec = io.cfIn.exceptionVec
   val raiseExceptionVec = csrExceptionVec.asUInt | iduExceptionVec.asUInt
   val raiseException = raiseExceptionVec.orR

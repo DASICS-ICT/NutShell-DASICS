@@ -64,6 +64,9 @@ class DasicsCsrIO extends NutCoreBundle with HasDasicsConst{
   val lsuSLibStoreFault = Output(Bool())
   val lsuULibLoadFault = Output(Bool())
   val lsuULibStoreFault = Output(Bool())
+
+  val isCloseUEcallFault = Output(Bool())
+  val isCloseSEcallFault = Output(Bool())
 }
 
 class DasicsCheckerIO extends NutCoreBundle{
@@ -104,6 +107,18 @@ class DasicsChecker(implicit val p: NutCoreConfig) extends NutCoreModule with Ha
   else ((for (i <- 0 until 64 if i % 16 == 0)
     yield (io.csr.JumpCfgBase(i + 15, i), io.csr.JumpBoundHiList(i >> 4), io.csr.JumpBoundLoList(i >> 4))))
 
+  // DASICS -- Software Switch
+  // U mode
+  val isCloseUEcallFault = io.csr.MainCfg(MCFG_CUET)
+  val isCloseUStoreFault = io.csr.MainCfg(MCFG_CUST)
+  val isCloseULoadFault  = io.csr.MainCfg(MCFG_CULT)
+  val isCloseUJumpFault  = io.csr.MainCfg(MCFG_CUFT)
+  // S mode
+  val isCloseSEcallFault = io.csr.MainCfg(MCFG_CSET)
+  val isCloseSStoreFault = io.csr.MainCfg(MCFG_CSST)
+  val isCloseSLoadFault  = io.csr.MainCfg(MCFG_CSLT)
+  val isCloseSJumpFault  = io.csr.MainCfg(MCFG_CSFT)
+
   // DASICS -- Check ISU
   val isuInSTrustedZone = detectInZone(io.isu.pc, io.csr.SMainBoundHi, io.csr.SMainBoundLo, isSMainEnable) || !isSMainEnable
   val isuInUTrustedZone = detectInZone(io.isu.pc, io.csr.UMainBoundHi, io.csr.UMainBoundLo, isUMainEnable) || !isUMainEnable
@@ -119,10 +134,10 @@ class DasicsChecker(implicit val p: NutCoreConfig) extends NutCoreModule with Ha
     (io.lsu.valid, io.lsu.IsLoad, io.lsu.InSTrustedZone, io.lsu.InUTrustedZone, io.lsu.PermitLibLoad, io.lsu.PermitLibStore)
 
   // Seperate access denying and exception raising
-  val lsuSLibLoadDeny : Bool =  lsuIsLoad && io.csr.pmode === ModeS && !lsuInSTrustedZone && !lsuPermitLibLoad
-  val lsuULibLoadDeny : Bool =  lsuIsLoad && io.csr.pmode === ModeU && !lsuInUTrustedZone && !lsuPermitLibLoad
-  val lsuSLibStoreDeny: Bool = !lsuIsLoad && io.csr.pmode === ModeS && !lsuInSTrustedZone && !lsuPermitLibStore
-  val lsuULibStoreDeny: Bool = !lsuIsLoad && io.csr.pmode === ModeU && !lsuInUTrustedZone && !lsuPermitLibStore
+  val lsuSLibLoadDeny : Bool =  lsuIsLoad && io.csr.pmode === ModeS && !lsuInSTrustedZone && !lsuPermitLibLoad && !isCloseSLoadFault
+  val lsuULibLoadDeny : Bool =  lsuIsLoad && io.csr.pmode === ModeU && !lsuInUTrustedZone && !lsuPermitLibLoad && !isCloseULoadFault
+  val lsuSLibStoreDeny: Bool = !lsuIsLoad && io.csr.pmode === ModeS && !lsuInSTrustedZone && !lsuPermitLibStore && !isCloseSStoreFault
+  val lsuULibStoreDeny: Bool = !lsuIsLoad && io.csr.pmode === ModeU && !lsuInUTrustedZone && !lsuPermitLibStore && !isCloseUStoreFault
   val lsuDeny: Bool = lsuSLibLoadDeny || lsuULibLoadDeny || lsuSLibStoreDeny || lsuULibStoreDeny
 
   val lsuSLibLoadFault  = lsuIsValid && lsuSLibLoadDeny
@@ -172,8 +187,8 @@ class DasicsChecker(implicit val p: NutCoreConfig) extends NutCoreModule with Ha
   val aluPermitRedirect = inTrustedZone || (!inTrustedZone &&  targetInTrustedZone && (io.alu.RedirectTarget === io.csr.ReturnPC || io.alu.RedirectTarget === io.csr.MaincallEntry)) ||
     targetInJumpZone || ( inJumpZone && !targetInTrustedZone && !targetInJumpZone && io.alu.RedirectTarget === io.csr.ActiveZoneReturnPC)
 
-  val aluSLibInstrFault = isSMainEnable && io.csr.pmode === ModeS && io.alu.RedirectValid && !aluPermitRedirect
-  val aluULibInstrFault = isUMainEnable && io.csr.pmode === ModeU && io.alu.RedirectValid && !aluPermitRedirect
+  val aluSLibInstrFault = isSMainEnable && io.csr.pmode === ModeS && io.alu.RedirectValid && !aluPermitRedirect && !isCloseSJumpFault
+  val aluULibInstrFault = isUMainEnable && io.csr.pmode === ModeU && io.alu.RedirectValid && !aluPermitRedirect && !isCloseUJumpFault
 
   //  when (aluSLibInstrFault || aluULibInstrFault)
   //  {
@@ -196,6 +211,8 @@ class DasicsChecker(implicit val p: NutCoreConfig) extends NutCoreModule with Ha
   io.csr.lsuSLibStoreFault := lsuSLibStoreFault
   io.csr.lsuULibLoadFault := lsuULibLoadFault
   io.csr.lsuULibStoreFault := lsuULibStoreFault
+  io.csr.isCloseUEcallFault := isCloseUEcallFault
+  io.csr.isCloseSEcallFault := isCloseSEcallFault
 
   io.lsu.Deny := lsuDeny
 }
